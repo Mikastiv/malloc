@@ -2,12 +2,14 @@ ifeq ($(HOSTTYPE),)
 	HOSTTYPE = $(shell uname -m)_$(shell uname -s)
 endif
 
+NAME = libft_malloc_$(HOSTTYPE).so
+LINK = libft_malloc.so
+
 CC = clang
 CFLAGS = -Wall -Wextra -Werror -Wpedantic
 
+LN = ln -sf
 RM = rm -f
-
-NAME = libft_malloc_$(HOSTTYPE).so
 
 INCDIR = include
 
@@ -20,11 +22,12 @@ INC = $(addprefix $(INCDIR)/, $(HFILES))
 OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
-		$(CC) $(CFLAGS) -c -I$(INCDIR) $< -o $@
+	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 all: $(NAME)
 
 $(NAME): $(OBJDIR) $(OBJ)
 	$(CC) -shared $(OBJ) -o $(NAME)
+	$(LN) $(NAME) $(LINK)
 
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
@@ -36,7 +39,7 @@ clean:
 	$(RM) $(OBJ)
 
 fclean: clean
-	$(RM) $(NAME)
+	$(RM) $(NAME) $(LINK)
 
 re: fclean all
 
