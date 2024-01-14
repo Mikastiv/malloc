@@ -8,9 +8,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#ifndef CHUNK_ALIGNMENT
 #define CHUNK_ALIGNMENT 16
-#endif
 
 #ifndef MAX_TINY_SIZE
 #define MAX_TINY_SIZE 128
@@ -78,7 +76,6 @@ init(Context* ctx) {
     if (pthread_mutex_init(&mtx, NULL) != 0) return false;
 
     ctx->page_size = (size_t)getpagesize();
-    ctx->is_init = true;
 
     const size_t tiny_alloc_size = align_up(100 * MAX_TINY_SIZE, ctx->page_size);
     const size_t small_alloc_size = align_up(100 * MIN_LARGE_SIZE, ctx->page_size);
@@ -86,6 +83,8 @@ init(Context* ctx) {
     ctx->tiny_chunks = mmap(NULL, tiny_alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     ctx->small_chunks = mmap(NULL, small_alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if ((size_t)ctx->tiny_chunks == (size_t)-1 || (size_t)ctx->small_chunks == (size_t)-1) return false;
+
+    ctx->is_init = true;
 
     return true;
 }
@@ -103,13 +102,15 @@ malloc(size_t size) {
     }
 
     if (size >= MIN_LARGE_SIZE) {
-        const size_t chunk_size = align_up(size + sizeof(ChunkHeader), CHUNK_ALIGNMENT);
+        const size_t user_block_size = align_up(size, CHUNK_ALIGNMENT);
+        const size_t header_size = align_up(sizeof(ChunkHeader), CHUNK_ALIGNMENT);
+        const size_t chunk_size = align_up(user_block_size + header_size, CHUNK_ALIGNMENT);
         char* chunk = mmap(NULL, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if ((size_t)chunk == (size_t)-1) return NULL;
 
         ChunkHeader* header = (ChunkHeader*)chunk;
-        *header = make_header(chunk_size, FLAG_CHUNK_MAPPED);
-        return chunk + CHUNK_ALIGNMENT;
+        *header = make_header(user_block_size, FLAG_CHUNK_MAPPED);
+        return chunk + header_size;
     }
 
     return 0;
@@ -133,8 +134,6 @@ free(void* ptr) {
         munmap(header, chunk_size(*header));
         return;
     }
-
-    (void)ptr;
 }
 
 void

@@ -6,7 +6,7 @@ NAME = libft_malloc_$(HOSTTYPE).so
 LINK = libft_malloc.so
 
 CC = clang
-CFLAGS = -Wall -Wextra -Werror -Wpedantic
+CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -g
 
 LN = ln -sf
 RM = rm -f
@@ -23,10 +23,14 @@ OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
-all: $(NAME)
+
+all: $(NAME) $(LINK)
 
 $(NAME): $(OBJDIR) $(OBJ)
 	$(CC) -shared $(OBJ) -o $(NAME)
+	$(LN) $(NAME) $(LINK)
+
+$(LINK):
 	$(LN) $(NAME) $(LINK)
 
 $(OBJDIR):
