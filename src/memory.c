@@ -10,34 +10,54 @@
 #define MAX_TINY_SIZE 128
 #define MIN_LARGE_SIZE 4096
 
-typedef struct {
+typedef struct ChunkHeader {
     u64 flags : 2;
     u64 size  : 62;
     u64 user_size;
 } ChunkHeader;
 
-typedef enum {
+typedef enum ChunkFlag {
     ChunkFlag_Allocated = 1 << 0,
     ChunkFlag_Mapped = 1 << 1,
 } ChunkFlag;
 
-// typedef struct {
+typedef struct FreeChunk {
+    ChunkHeader header;
+    struct FreeChunk* prev;
+    struct FreeChunk* next;
+} FreeChunk;
 
-// } Arena;
+typedef struct ArenaNode {
+    u64 size;
+    struct ArenaNode* next;
+} ArenaNode;
 
-typedef struct {
+typedef struct Arena {
+    ArenaNode* head;
+} Arena;
+
+typedef struct Context {
     bool is_init;
     u64 page_size;
     u64 header_size;
 
-    char* heap;
+    Arena arena;
 } Context;
 
 static Context ctx;
-
 static pthread_mutex_t mtx;
 
-bool
+static int
+lock_mutex(void) {
+    return pthread_mutex_lock(&mtx);
+}
+
+static int
+unlock_mutex(void) {
+    return pthread_mutex_unlock(&mtx);
+}
+
+static bool
 init(Context* ctx) {
     if (ctx->is_init) return true;
 
@@ -81,47 +101,63 @@ calculate_chunk_size(const u64 requested) {
 
 void*
 malloc(size_t size) {
+    lock_mutex();
+
     if (!ctx.is_init) {
-        if (!init(&ctx)) return NULL;
+        if (!init(&ctx)) goto error;
     }
 
     if (size >= MIN_LARGE_SIZE) {
         const u64 chunk_size = calculate_chunk_size(size);
         char* chunk = mmap(NULL, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-        if (mmap_failed(chunk)) return NULL;
+        if (mmap_failed(chunk)) goto error;
 
         ChunkHeader* header = (ChunkHeader*)chunk;
         *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
+
+        unlock_mutex();
         return chunk + ctx.header_size;
     }
 
-    return 0;
+    return NULL;
+
+error:
+    unlock_mutex();
+    return NULL;
 }
 
 void*
 realloc(void* ptr, size_t size) {
     if (!ptr) return malloc(size);
 
+    lock_mutex();
+
     ChunkHeader* header = get_header(ptr);
 
     if (header->flags & ChunkFlag_Mapped) {
         if (size <= header->size - metadata_size()) {
             header->user_size = size;
+            unlock_mutex();
             return ptr;
         };
 
         const u64 new_chunk_size = calculate_chunk_size(size);
         char* new_chunk = mmap(NULL, new_chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-        if (mmap_failed(new_chunk)) return NULL;
+        if (mmap_failed(new_chunk)) goto error;
 
         memcopy(new_chunk + ctx.header_size, ptr, header->user_size);
         ChunkHeader* new_header = (ChunkHeader*)new_chunk;
         *new_header = (ChunkHeader){ .size = new_chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
         munmap(header, header->size);
+        unlock_mutex();
         return new_chunk + ctx.header_size;
     }
 
+    return NULL;
+
+error:
+    unlock_mutex();
     return NULL;
 }
 
@@ -129,12 +165,17 @@ void
 free(void* ptr) {
     if (!ptr) return;
 
+    lock_mutex();
+
     ChunkHeader* header = get_header(ptr);
 
     if (header->flags & ChunkFlag_Mapped) {
         munmap(header, header->size);
+        unlock_mutex();
         return;
     }
+
+    unlock_mutex();
 }
 
 void
