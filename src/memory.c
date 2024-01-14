@@ -1,68 +1,36 @@
-#include "memory.h"
+#include "types.h"
+#include "utils.h"
 
-#include "ctx.h"
-
-#include <assert.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
 #define CHUNK_ALIGNMENT 16
-
-#ifndef MAX_TINY_SIZE
 #define MAX_TINY_SIZE 128
-#endif
+#define MIN_LARGE_SIZE 4096
 
-#ifndef MIN_LARGE_SIZE
-#define MIN_LARGE_SIZE 2048
-#endif
+typedef struct {
+    u64 flags : 2;
+    u64 size  : 62;
+    u64 user_size;
+} ChunkHeader;
 
-#if OS_WINDOWS
-#error "Windows not supported"
-#endif
+typedef enum {
+    ChunkFlag_Allocated = 1 << 0,
+    ChunkFlag_Mapped = 1 << 1,
+} ChunkFlag;
 
-size_t
-align_down(const size_t addr, const size_t alignment) {
-    assert(alignment != 0);
-    assert((alignment & (alignment - 1)) == 0);
-    return addr & ~(alignment - 1);
-}
+// typedef struct {
 
-size_t
-align_up(const size_t addr, const size_t alignment) {
-    assert(alignment != 0);
-    assert((alignment & (alignment - 1)) == 0);
-    const size_t mask = alignment - 1;
-    return (addr + mask) & ~mask;
-}
-
-
-
-typedef size_t ChunkHeader;
-
-#define CHUNK_HEADER_MASK (~((size_t)(CHUNK_ALIGNMENT - 1)))
-#define FLAG_CHUNK_ALLOCATED ((size_t)1 << 0)
-#define FLAG_CHUNK_MAPPED ((size_t)1 << 1)
-
-size_t
-chunk_size(const ChunkHeader header) {
-    return header & CHUNK_HEADER_MASK;
-}
-
-ChunkHeader
-make_header(const size_t size, size_t flags) {
-    assert(align_up(size, CHUNK_ALIGNMENT) == size);
-    return size | flags;
-}
-
+// } Arena;
 
 typedef struct {
     bool is_init;
-    size_t page_size;
+    u64 page_size;
+    u64 header_size;
 
-    char* tiny_chunks;
-    char* small_chunks;
+    char* heap;
 } Context;
 
 static Context ctx;
@@ -75,15 +43,8 @@ init(Context* ctx) {
 
     if (pthread_mutex_init(&mtx, NULL) != 0) return false;
 
-    ctx->page_size = (size_t)getpagesize();
-
-    const size_t tiny_alloc_size = align_up(100 * MAX_TINY_SIZE, ctx->page_size);
-    const size_t small_alloc_size = align_up(100 * MIN_LARGE_SIZE, ctx->page_size);
-
-    ctx->tiny_chunks = mmap(NULL, tiny_alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-    ctx->small_chunks = mmap(NULL, small_alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-    if ((size_t)ctx->tiny_chunks == (size_t)-1 || (size_t)ctx->small_chunks == (size_t)-1) return false;
-
+    ctx->page_size = (u64)getpagesize();
+    ctx->header_size = align_up(sizeof(ChunkHeader), CHUNK_ALIGNMENT);
     ctx->is_init = true;
 
     return true;
@@ -95,6 +56,29 @@ deinit(void) {
     pthread_mutex_destroy(&mtx);
 }
 
+static u64
+metadata_size(void) {
+    return ctx.header_size * 2;
+}
+
+static ChunkHeader*
+get_header(void* ptr) {
+    char* block = ptr;
+    return (ChunkHeader*)(block - ctx.header_size);
+}
+
+static bool
+mmap_failed(void* ptr) {
+    return (u64)ptr == (u64)-1;
+}
+
+static u64
+calculate_chunk_size(const u64 requested) {
+    const u64 user_block_size = align_up(requested, CHUNK_ALIGNMENT);
+    const u64 chunk_size = align_up(user_block_size + metadata_size(), CHUNK_ALIGNMENT);
+    return chunk_size;
+}
+
 void*
 malloc(size_t size) {
     if (!ctx.is_init) {
@@ -102,15 +86,13 @@ malloc(size_t size) {
     }
 
     if (size >= MIN_LARGE_SIZE) {
-        const size_t user_block_size = align_up(size, CHUNK_ALIGNMENT);
-        const size_t header_size = align_up(sizeof(ChunkHeader), CHUNK_ALIGNMENT);
-        const size_t chunk_size = align_up(user_block_size + header_size, CHUNK_ALIGNMENT);
+        const u64 chunk_size = calculate_chunk_size(size);
         char* chunk = mmap(NULL, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-        if ((size_t)chunk == (size_t)-1) return NULL;
+        if (mmap_failed(chunk)) return NULL;
 
         ChunkHeader* header = (ChunkHeader*)chunk;
-        *header = make_header(user_block_size, FLAG_CHUNK_MAPPED);
-        return chunk + header_size;
+        *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
+        return chunk + ctx.header_size;
     }
 
     return 0;
@@ -118,20 +100,39 @@ malloc(size_t size) {
 
 void*
 realloc(void* ptr, size_t size) {
-    (void)ptr;
-    (void)size;
-    return 0;
+    if (!ptr) return malloc(size);
+
+    ChunkHeader* header = get_header(ptr);
+
+    if (header->flags & ChunkFlag_Mapped) {
+        if (size <= header->size - metadata_size()) {
+            header->user_size = size;
+            return ptr;
+        };
+
+        const u64 new_chunk_size = calculate_chunk_size(size);
+        char* new_chunk = mmap(NULL, new_chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+        if (mmap_failed(new_chunk)) return NULL;
+
+        memcopy(new_chunk + ctx.header_size, ptr, header->user_size);
+        ChunkHeader* new_header = (ChunkHeader*)new_chunk;
+        *new_header = (ChunkHeader){ .size = new_chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
+
+        munmap(header, header->size);
+        return new_chunk + ctx.header_size;
+    }
+
+    return NULL;
 }
 
 void
 free(void* ptr) {
     if (!ptr) return;
 
-    char* chunk = ptr;
-    ChunkHeader* header = (ChunkHeader*)(chunk - CHUNK_ALIGNMENT);
+    ChunkHeader* header = get_header(ptr);
 
-    if (*header & FLAG_CHUNK_MAPPED) {
-        munmap(header, chunk_size(*header));
+    if (header->flags & ChunkFlag_Mapped) {
+        munmap(header, header->size);
         return;
     }
 }

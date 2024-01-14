@@ -15,10 +15,11 @@ INCDIR = include
 
 SRCDIR = src
 OBJDIR = obj
-CFILES = memory.c
+CFILES = memory.c utils.c
 HFILES = memory.h
+P_HFILES = types.h utils.h
 SRC = $(addprefix $(SRCDIR)/, $(CFILES))
-INC = $(addprefix $(INCDIR)/, $(HFILES))
+INC = $(addprefix $(INCDIR)/, $(HFILES)) $(addprefix $(SRCDIR)/, $(P_HFILES))
 OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
