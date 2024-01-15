@@ -9,6 +9,8 @@
 #define CHUNK_ALIGNMENT 16
 #define MAX_TINY_SIZE 128
 #define MIN_LARGE_SIZE 4096
+#define MIN_BLOCK_SIZE CHUNK_ALIGNMENT
+#define MIN_CHUNK_SIZE (CHUNK_ALIGNMENT * 2 + MIN_BLOCK_SIZE)
 
 typedef struct ChunkHeader {
     u64 flags : 2;
@@ -95,6 +97,11 @@ chunk_metadata_size(const bool is_mapped) {
     return is_mapped ? header_size() : header_size() * 2; // header + footer
 }
 
+static char*
+chunk_data_start(ChunkHeader* header) {
+    return (char*)header + header_size();
+}
+
 static ChunkHeader*
 get_header(void* ptr) {
     char* block = ptr;
@@ -178,20 +185,41 @@ next_chunk_header(ChunkHeader* header) {
     return (ChunkHeader*)(ptr + header->size);
 }
 
+static ChunkHeader*
+next_appropriate_chunk(ChunkHeader* current, const u64 size) {
+    ChunkHeader* footer = get_footer(current);
+    while (user_block_size(current->size) < size && footer->size != 0) {
+        current = next_chunk_header(current);
+        footer = get_footer(current);
+    }
+    return current;
+}
+
+static ChunkHeader*
+split_chunk(ChunkHeader* header) {
+
+}
+
 static char*
 get_block_from_heap(const u64 requested_size) {
+    const u64 size = calculate_chunk_size(requested_size, false);
     Heap* heap = ctx.arena.head;
     char* block = NULL;
 
     while (heap) {
-        ChunkHeader* header = heap_data_start(heap);
+        ChunkHeader* header = next_appropriate_chunk(heap_data_start(heap), size);
         ChunkHeader* footer = get_footer(header);
-        while (user_block_size(header->size) < requested_size && footer->size != 0) {
-            header = next_chunk_header(header);
+        while (header->flags & ChunkFlag_Allocated && footer->size != 0) {
+            header = next_appropriate_chunk(header, size);
             footer = get_footer(header);
         }
 
-
+        if (header->size <= size) {
+            if (header->size - size > MIN_CHUNK_SIZE) {
+                ChunkHeader* other_half = split_chunk(header);
+            }
+            block = chunk_data_start(header);
+        }
     }
 
     return block;
@@ -214,19 +242,31 @@ malloc(size_t size) {
         *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
         unlock_mutex();
-        return chunk + header_size();
+        return chunk_data_start(header);
     }
 
     if (size <= MAX_TINY_SIZE) {
+        // get from freelist
         char* block = get_block_from_tiny(size);
         if (block) {
             unlock_mutex();
             return block;
         }
 
-        grow_arena();
+        // get from top of heap
+        block = get_block_from_heap(size);
+        if (block) {
+            unlock_mutex();
+            return block;
+        }
 
-        return NULL;
+        // grow heap and get block
+        if (!grow_arena()) {
+            unlock_mutex();
+            return NULL;
+        }
+
+        return get_block_from_heap(size);
     }
 
     return NULL;
@@ -260,7 +300,7 @@ realloc(void* ptr, size_t size) {
 
         munmap(header, header->size);
         unlock_mutex();
-        return new_chunk + header_size();
+        return chunk_data_start(new_header);
     }
 
     return NULL;
