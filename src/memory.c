@@ -123,6 +123,7 @@ calculate_chunk_size(const u64 requested_size, const bool is_mapped) {
 static char*
 get_block_from_tiny(const u64 requested_size) {
     const u64 size = calculate_chunk_size(requested_size, false);
+    (void)size;
 
     return NULL;
 }
@@ -161,9 +162,39 @@ grow_arena(void) {
     *header = (ChunkHeader){ .size = chunk_size };
 
     ChunkHeader* footer = get_footer(header);
-    *footer = *header;
+    *footer = (ChunkHeader){ .size = 0 }; // indicate last chunk footer
 
     return true;
+}
+
+static u64
+user_block_size(const u64 chunk_size) {
+    return chunk_size - chunk_metadata_size(false);
+}
+
+static ChunkHeader*
+next_chunk_header(ChunkHeader* header) {
+    char* ptr = (char*)header;
+    return (ChunkHeader*)(ptr + header->size);
+}
+
+static char*
+get_block_from_heap(const u64 requested_size) {
+    Heap* heap = ctx.arena.head;
+    char* block = NULL;
+
+    while (heap) {
+        ChunkHeader* header = heap_data_start(heap);
+        ChunkHeader* footer = get_footer(header);
+        while (user_block_size(header->size) < requested_size && footer->size != 0) {
+            header = next_chunk_header(header);
+            footer = get_footer(header);
+        }
+
+
+    }
+
+    return block;
 }
 
 void*
@@ -193,7 +224,9 @@ malloc(size_t size) {
             return block;
         }
 
+        grow_arena();
 
+        return NULL;
     }
 
     return NULL;

@@ -1,6 +1,6 @@
 #include "memory.h"
 
 int main() {
-    char* block = malloc(15000);
+    char* block = malloc(64);
     free(block);
 }
