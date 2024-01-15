@@ -27,21 +27,27 @@ typedef struct FreeChunk {
     struct FreeChunk* next;
 } FreeChunk;
 
-typedef struct ArenaNode {
+
+typedef struct Freelist {
+    FreeChunk* head;
+} Freelist;
+
+typedef struct Heap {
     u64 size;
-    struct ArenaNode* next;
-} ArenaNode;
+    struct Heap* next;
+} Heap;
 
 typedef struct Arena {
-    ArenaNode* head;
+    Heap* head;
 } Arena;
 
 typedef struct Context {
     bool is_init;
     u64 page_size;
-    u64 header_size;
 
     Arena arena;
+    Freelist tiny_chunks;
+    Freelist small_chunks;
 } Context;
 
 static Context ctx;
@@ -58,14 +64,17 @@ unlock_mutex(void) {
 }
 
 static bool
-init(Context* ctx) {
-    if (ctx->is_init) return true;
+init(void) {
+    if (ctx.is_init) return true;
 
     if (pthread_mutex_init(&mtx, NULL) != 0) return false;
 
-    ctx->page_size = (u64)getpagesize();
-    ctx->header_size = align_up(sizeof(ChunkHeader), CHUNK_ALIGNMENT);
-    ctx->is_init = true;
+    ctx.page_size = (u64)getpagesize();
+    ctx.is_init = true;
+
+    ctx.arena.head = NULL;
+    ctx.tiny_chunks.head = NULL;
+    ctx.small_chunks.head = NULL;
 
     return true;
 }
@@ -77,14 +86,26 @@ deinit(void) {
 }
 
 static u64
-metadata_size(const bool is_mapped) {
-    return is_mapped ? ctx.header_size : ctx.header_size * 2; // header + footer
+header_size(void) {
+    return align_up(sizeof(ChunkHeader), CHUNK_ALIGNMENT);
+}
+
+static u64
+chunk_metadata_size(const bool is_mapped) {
+    return is_mapped ? header_size() : header_size() * 2; // header + footer
 }
 
 static ChunkHeader*
 get_header(void* ptr) {
     char* block = ptr;
-    return (ChunkHeader*)(block - ctx.header_size);
+    return (ChunkHeader*)(block - header_size());
+}
+
+static ChunkHeader*
+get_footer(ChunkHeader* header) {
+    char* ptr = (char*)header;
+    ptr += header->size - header_size();
+    return (ChunkHeader*)ptr;
 }
 
 static bool
@@ -93,10 +114,56 @@ mmap_failed(void* ptr) {
 }
 
 static u64
-calculate_chunk_size(const u64 requested, const bool is_mapped) {
-    const u64 user_block_size = align_up(requested, CHUNK_ALIGNMENT);
-    const u64 chunk_size = align_up(user_block_size + metadata_size(is_mapped), CHUNK_ALIGNMENT);
+calculate_chunk_size(const u64 requested_size, const bool is_mapped) {
+    const u64 user_block_size = align_up(requested_size, CHUNK_ALIGNMENT);
+    const u64 chunk_size = align_up(user_block_size + chunk_metadata_size(is_mapped), CHUNK_ALIGNMENT);
     return chunk_size;
+}
+
+static char*
+get_block_from_tiny(const u64 requested_size) {
+    const u64 size = calculate_chunk_size(requested_size, false);
+
+    return NULL;
+}
+
+static u64
+heap_metadata_size(void) {
+    return align_up(sizeof(Heap), CHUNK_ALIGNMENT);
+}
+
+static ChunkHeader*
+heap_data_start(Heap* heap) {
+    char* ptr = (char*)heap + heap_metadata_size();
+    return (ChunkHeader*)ptr;
+}
+
+
+static bool
+grow_arena(void) {
+    const u64 size = ctx.page_size * 8;
+    void* heap = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (mmap_failed(heap)) return false;
+
+    if (ctx.arena.head == NULL) {
+        ctx.arena.head = heap;
+        ctx.arena.head->size = size;
+        ctx.arena.head->next = NULL;
+    } else {
+        Heap* old_head = ctx.arena.head;
+        ctx.arena.head = heap;
+        ctx.arena.head->size = size;
+        ctx.arena.head->next = old_head;
+    }
+
+    const u64 chunk_size = size - heap_metadata_size();
+    ChunkHeader* header = heap_data_start(heap);
+    *header = (ChunkHeader){ .size = chunk_size };
+
+    ChunkHeader* footer = get_footer(header);
+    *footer = *header;
+
+    return true;
 }
 
 void*
@@ -104,7 +171,7 @@ malloc(size_t size) {
     lock_mutex();
 
     if (!ctx.is_init) {
-        if (!init(&ctx)) goto error;
+        if (!init()) goto error;
     }
 
     if (size >= MIN_LARGE_SIZE) {
@@ -116,11 +183,20 @@ malloc(size_t size) {
         *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
         unlock_mutex();
-        return chunk + ctx.header_size;
+        return chunk + header_size();
+    }
+
+    if (size <= MAX_TINY_SIZE) {
+        char* block = get_block_from_tiny(size);
+        if (block) {
+            unlock_mutex();
+            return block;
+        }
+
+
     }
 
     return NULL;
-
 error:
     unlock_mutex();
     return NULL;
@@ -135,7 +211,7 @@ realloc(void* ptr, size_t size) {
     ChunkHeader* header = get_header(ptr);
 
     if (header->flags & ChunkFlag_Mapped) {
-        if (size <= header->size - metadata_size(true)) {
+        if (size <= header->size - chunk_metadata_size(true)) {
             header->user_size = size;
             unlock_mutex();
             return ptr;
@@ -145,13 +221,13 @@ realloc(void* ptr, size_t size) {
         char* new_chunk = mmap(NULL, new_chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if (mmap_failed(new_chunk)) goto error;
 
-        memcopy(new_chunk + ctx.header_size, ptr, header->user_size);
+        memcopy(new_chunk + header_size(), ptr, header->user_size);
         ChunkHeader* new_header = (ChunkHeader*)new_chunk;
         *new_header = (ChunkHeader){ .size = new_chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
         munmap(header, header->size);
         unlock_mutex();
-        return new_chunk + ctx.header_size;
+        return new_chunk + header_size();
     }
 
     return NULL;
