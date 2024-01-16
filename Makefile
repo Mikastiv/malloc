@@ -15,11 +15,10 @@ INCDIR = include
 
 SRCDIR = src
 OBJDIR = obj
-CFILES = memory.c utils.c
-HFILES = memory.h
-P_HFILES = types.h utils.h
+CFILES = memory.c utils.c chunk.c heap.c arena.c
+HFILES = types.h utils.h arena.h chunk.h heap.h
 SRC = $(addprefix $(SRCDIR)/, $(CFILES))
-INC = $(addprefix $(INCDIR)/, $(HFILES)) $(addprefix $(SRCDIR)/, $(P_HFILES))
+INC = $(addprefix $(SRCDIR)/, $(HFILES))
 OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
@@ -38,7 +37,7 @@ $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
 fmt:
-	@clang-format -i $(SRC) $(INC)
+	@clang-format -i $(SRC) $(INC) $(INCDIR)/memory.h
 
 clean:
 	$(RM) $(OBJ)

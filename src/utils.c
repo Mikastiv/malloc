@@ -43,3 +43,8 @@ memcopy(void* dst, const void* src, u64 size) {
         }
     }
 }
+
+bool
+mmap_failed(void* ptr) {
+    return (u64)ptr == (u64)-1;
+}
