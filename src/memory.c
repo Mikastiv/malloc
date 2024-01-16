@@ -54,7 +54,7 @@ deinit(void) {
 }
 
 static char*
-get_block_from_freelist(Freelist list, const u64 requested_size) {
+get_block_from_freelist(Freelist* list, const u64 requested_size) {
     const u64 size = chunk_calculate_size(requested_size, false);
     (void)size;
 
@@ -127,7 +127,7 @@ malloc(size_t size) {
 
     if (size <= MAX_TINY_SIZE) {
         // get from freelist
-        char* block = get_block_from_freelist(ctx.freelist_tiny, size);
+        char* block = get_block_from_freelist(&ctx.freelist_tiny, size);
         if (block) {
             unlock_mutex();
             return block;
@@ -147,26 +147,6 @@ malloc(size_t size) {
         }
 
         return get_block_from_heap(ctx.arena_tiny, size);
-    }
-
-    // get from freelist
-    char* block = get_block_from_freelist(ctx.freelist_small, size);
-    if (block) {
-        unlock_mutex();
-        return block;
-    }
-
-    // get from top of heap
-    block = get_block_from_heap(ctx.arena_small, size);
-    if (block) {
-        unlock_mutex();
-        return block;
-    }
-
-    // grow heap and get block
-    if (!arena_grow(&ctx.arena_small)) {
-        unlock_mutex();
-        return NULL;
     }
 
     return get_block_from_heap(ctx.arena_small, size);
