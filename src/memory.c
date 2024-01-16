@@ -29,7 +29,6 @@ typedef struct FreeChunk {
     struct FreeChunk* next;
 } FreeChunk;
 
-
 typedef struct Freelist {
     FreeChunk* head;
 } Freelist;
@@ -47,9 +46,10 @@ typedef struct Context {
     bool is_init;
     u64 page_size;
 
-    Arena arena;
-    Freelist tiny_chunks;
-    Freelist small_chunks;
+    Arena arena_tiny;
+    Arena arena_small;
+    Freelist chunks_tiny;
+    Freelist chunks_small;
 } Context;
 
 static Context ctx;
@@ -74,9 +74,10 @@ init(void) {
     ctx.page_size = (u64)getpagesize();
     ctx.is_init = true;
 
-    ctx.arena.head = NULL;
-    ctx.tiny_chunks.head = NULL;
-    ctx.small_chunks.head = NULL;
+    ctx.arena_tiny.head = NULL;
+    ctx.arena_small.head = NULL;
+    ctx.chunks_tiny.head = NULL;
+    ctx.chunks_small.head = NULL;
 
     return true;
 }
@@ -128,7 +129,7 @@ calculate_chunk_size(const u64 requested_size, const bool is_mapped) {
 }
 
 static char*
-get_block_from_tiny(const u64 requested_size) {
+get_block_from_tiny_list(const u64 requested_size) {
     const u64 size = calculate_chunk_size(requested_size, false);
     (void)size;
 
@@ -146,23 +147,27 @@ heap_data_start(Heap* heap) {
     return (ChunkHeader*)ptr;
 }
 
+static void
+append_heap(Arena* arena, Heap* heap, const u64 size) {
+    if (arena->head == NULL) {
+        arena->head = heap;
+        arena->head->size = size;
+        arena->head->next = NULL;
+    } else {
+        Heap* old_head = arena->head;
+        arena->head = heap;
+        arena->head->size = size;
+        arena->head->next = old_head;
+    }
+}
 
 static bool
-grow_arena(void) {
+grow_arena(Arena* arena) {
     const u64 size = ctx.page_size * 8;
     void* heap = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if (mmap_failed(heap)) return false;
 
-    if (ctx.arena.head == NULL) {
-        ctx.arena.head = heap;
-        ctx.arena.head->size = size;
-        ctx.arena.head->next = NULL;
-    } else {
-        Heap* old_head = ctx.arena.head;
-        ctx.arena.head = heap;
-        ctx.arena.head->size = size;
-        ctx.arena.head->next = old_head;
-    }
+    append_heap(arena, heap, size);
 
     const u64 chunk_size = size - heap_metadata_size();
     ChunkHeader* header = heap_data_start(heap);
@@ -197,13 +202,12 @@ next_appropriate_chunk(ChunkHeader* current, const u64 size) {
 
 static ChunkHeader*
 split_chunk(ChunkHeader* header) {
-
 }
 
 static char*
-get_block_from_heap(const u64 requested_size) {
+get_block_from_heap(Arena arena, const u64 requested_size) {
     const u64 size = calculate_chunk_size(requested_size, false);
-    Heap* heap = ctx.arena.head;
+    Heap* heap = arena.head;
     char* block = NULL;
 
     while (heap) {
@@ -247,26 +251,26 @@ malloc(size_t size) {
 
     if (size <= MAX_TINY_SIZE) {
         // get from freelist
-        char* block = get_block_from_tiny(size);
+        char* block = get_block_from_tiny_list(size);
         if (block) {
             unlock_mutex();
             return block;
         }
 
         // get from top of heap
-        block = get_block_from_heap(size);
+        block = get_block_from_heap(ctx.arena_tiny, size);
         if (block) {
             unlock_mutex();
             return block;
         }
 
         // grow heap and get block
-        if (!grow_arena()) {
+        if (!grow_arena(&ctx.arena_tiny)) {
             unlock_mutex();
             return NULL;
         }
 
-        return get_block_from_heap(size);
+        return get_block_from_heap(ctx.arena_tiny, size);
     }
 
     return NULL;
