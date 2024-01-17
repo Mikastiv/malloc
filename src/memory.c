@@ -58,6 +58,23 @@ deinit(void) {
 // user_block_size(const u64 chunk_size) {
 //     return chunk_size - chunk_metadata_size(false);
 
+static char*
+get_block(Arena* arena, Freelist* list, const u64 requested_size) {
+    // get from freelist
+    char* block = freelist_get_block(list, requested_size);
+    if (block) return block;
+
+    // get from top of heap
+    block = heap_get_block(arena->head, requested_size);
+    if (block) return block;
+
+    // grow heap and get block
+    if (!arena_grow(arena)) return 0;
+
+    block = heap_get_block(arena->head, requested_size);
+    return block;
+}
+
 void*
 malloc(size_t size) {
     if (!ctx.is_init) {
@@ -78,30 +95,16 @@ malloc(size_t size) {
         return chunk_data_start(header);
     }
 
+    char* block = 0;
     if (size <= MAX_TINY_SIZE) {
-        // get from freelist
-        char* block = freelist_get_block(&ctx.freelist_tiny, size);
-        if (block) {
-            unlock_mutex();
-            return block;
-        }
-
-        // get from top of heap
-        block = heap_get_block(ctx.arena_tiny.head, size);
-        if (block) {
-            unlock_mutex();
-            return block;
-        }
-
-        // grow heap and get block
-        if (!arena_grow(&ctx.arena_tiny)) goto error;
-
-        block = heap_get_block(ctx.arena_tiny.head, size);
-        unlock_mutex();
-        return block;
+        block = get_block(&ctx.arena_tiny, &ctx.freelist_tiny, size);
+    } else {
+        block = get_block(&ctx.arena_small, &ctx.freelist_small, size);
     }
 
-    return 0;
+    unlock_mutex();
+    return block;
+
 error:
     unlock_mutex();
     return 0;
