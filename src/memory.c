@@ -70,8 +70,8 @@ get_block(Arena* arena, Freelist* list, const u64 requested_size) {
 
     // grow heap and get block
     if (!arena_grow(arena)) return 0;
-
     block = heap_get_block(arena->head, requested_size);
+
     return block;
 }
 
@@ -93,7 +93,7 @@ malloc(size_t size) {
         *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
         block = chunk_data_start(header);
-    } else if (size <= MAX_TINY_SIZE) {
+    } else if (size + chunk_metadata_size(false) <= MAX_TINY_SIZE) {
         block = get_block(&ctx.arena_tiny, &ctx.freelist_tiny, size);
     } else {
         block = get_block(&ctx.arena_small, &ctx.freelist_small, size);
@@ -142,6 +142,23 @@ error:
     return 0;
 }
 
+static void
+free_block(Freelist* list, ChunkHeader* header) {
+    header->flags &= ~ChunkFlag_Allocated;
+
+    ChunkHeader* prev = chunk_prev(header);
+    if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
+        header = chunk_coalesce(prev, header);
+    }
+
+    ChunkHeader* next = chunk_next(header);
+    if (next && (next->flags & ChunkFlag_Allocated) == 0) {
+        header = chunk_coalesce(header, next);
+    }
+
+    freelist_prepend(list, header);
+}
+
 void
 free(void* ptr) {
     if (!ptr) return;
@@ -152,8 +169,10 @@ free(void* ptr) {
 
     if (header->flags & ChunkFlag_Mapped) {
         munmap(header, header->size);
-        unlock_mutex();
-        return;
+    } else if (header->size + chunk_metadata_size(false) <= MAX_TINY_SIZE) {
+        free_block(&ctx.freelist_tiny, header);
+    } else {
+        free_block(&ctx.freelist_small, header);
     }
 
     unlock_mutex();

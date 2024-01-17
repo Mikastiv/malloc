@@ -2,7 +2,7 @@
 
 #include "defines.h"
 
-static void
+void
 freelist_prepend(Freelist* list, ChunkHeader* chunk) {
     FreeChunk* ptr = (FreeChunk*)chunk;
     ptr->header = *chunk;

@@ -33,7 +33,8 @@ heap_get_block(Heap* heap, const u64 requested_size) {
                 chunk_split(header, size);
             }
             footer = chunk_get_footer(header);
-            *header = (ChunkHeader){ .size = header->size, .flags = ChunkFlag_Allocated, .user_size = requested_size };
+            header->flags |= ChunkFlag_Allocated;
+            header->user_size = requested_size;
             *footer = *header;
             block = chunk_data_start(header);
             break;

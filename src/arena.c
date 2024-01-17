@@ -29,10 +29,10 @@ arena_grow(Arena* arena) {
 
     const u64 chunk_size = size - heap_metadata_size();
     ChunkHeader* header = heap_data_start(heap);
-    *header = (ChunkHeader){ .size = chunk_size };
+    *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_First };
 
     ChunkHeader* footer = chunk_get_footer(header);
-    *footer = (ChunkHeader){ .size = 0 }; // indicate last chunk footer
+    *footer = (ChunkHeader){ .size = 0, .flags = ChunkFlag_First }; // indicate last chunk footer
 
     return true;
 }

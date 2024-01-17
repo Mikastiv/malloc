@@ -40,6 +40,17 @@ chunk_next(ChunkHeader* header) {
     return (ChunkHeader*)ptr;
 }
 
+ChunkHeader*
+chunk_prev(ChunkHeader* header) {
+    if (header->flags & ChunkFlag_First) return 0;
+
+    char* ptr = (char*)header - chunk_header_size();
+    ChunkHeader* footer = (ChunkHeader*)ptr;
+
+    header = (ChunkHeader*)(ptr - (footer->size - chunk_header_size()));
+    return header;
+}
+
 u64
 chunk_calculate_size(const u64 requested_size, const bool is_mapped) {
     const u64 user_block_size = align_up(requested_size, CHUNK_ALIGNMENT);
@@ -51,12 +62,27 @@ ChunkHeader*
 chunk_split(ChunkHeader* header, const u64 size) {
     const u64 old_size = header->size;
     header->size = size;
-    ChunkHeader* ptr = chunk_get_footer(header);
-    *ptr = (ChunkHeader){ .size = size, .flags = header->flags };
+
+    ChunkHeader* footer = chunk_get_footer(header);
+    *footer = (ChunkHeader){ .size = size, .flags = header->flags };
 
     header = chunk_next(header);
     *header = (ChunkHeader){ .size = old_size - size, .flags = 0 };
-    ptr = chunk_get_footer(header);
-    *ptr = (ChunkHeader){ .size = old_size - size, .flags = 0 };
+    footer = chunk_get_footer(header);
+    *footer = (ChunkHeader){ .size = old_size - size, .flags = 0 };
+
     return header;
+}
+
+ChunkHeader*
+chunk_coalesce(ChunkHeader* front, ChunkHeader* back) {
+    ChunkHeader* footer = chunk_get_footer(back);
+    const bool back_is_last = footer->size == 0;
+
+    front->size += back->size;
+    footer = chunk_get_footer(front);
+    *footer = *front;
+    if (back_is_last) footer->size = 0;
+
+    return front;
 }
