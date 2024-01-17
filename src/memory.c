@@ -83,6 +83,7 @@ malloc(size_t size) {
 
     lock_mutex();
 
+    char* block = 0;
     if (size >= MIN_LARGE_SIZE) {
         const u64 chunk_size = chunk_calculate_size(size, true);
         char* chunk = mmap(0, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -91,12 +92,8 @@ malloc(size_t size) {
         ChunkHeader* header = (ChunkHeader*)chunk;
         *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
-        unlock_mutex();
-        return chunk_data_start(header);
-    }
-
-    char* block = 0;
-    if (size <= MAX_TINY_SIZE) {
+        block = chunk_data_start(header);
+    } else if (size <= MAX_TINY_SIZE) {
         block = get_block(&ctx.arena_tiny, &ctx.freelist_tiny, size);
     } else {
         block = get_block(&ctx.arena_small, &ctx.freelist_small, size);
