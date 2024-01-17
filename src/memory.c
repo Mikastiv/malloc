@@ -7,6 +7,7 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -178,6 +179,62 @@ free(void* ptr) {
     unlock_mutex();
 }
 
+static u64
+str_len(const char* str) {
+    u64 len = 0;
+    while (str[len]) ++len;
+    return len;
+}
+
+static void
+putstr(const char* str) {
+    write(STDOUT_FILENO, str, str_len(str));
+}
+
+static void
+putnbr(const u64 nbr, const u64 base) {
+    const char* hex = "0123456789ABCDEF";
+    if (nbr >= base) {
+        putnbr(nbr / base, base);
+    }
+    const char n = hex[nbr % base];
+    write(STDOUT_FILENO, &n, 1);
+}
+
+static void
+print_arena_allocs(const char* name, Arena* arena, u64* total) {
+    Heap* heap = arena->head;
+    while (heap) {
+        putstr(name);
+        putstr(" : 0x");
+        putnbr((u64)heap_data_start(heap), 16);
+        putstr("\n");
+        ChunkHeader* chunk = heap_data_start(heap);
+        while (chunk) {
+            const u64 addr = (u64)chunk_data_start(chunk);
+            const unsigned long size = chunk->user_size;
+            *total += size;
+            if (chunk->flags & ChunkFlag_Allocated) {
+                putstr("0x");
+                putnbr(addr, 16);
+                putstr(" - 0x");
+                putnbr(addr + chunk->user_size, 16);
+                putstr(" : ");
+                putnbr(chunk->user_size, 10);
+                putstr(" bytes\n");
+            }
+            chunk = chunk_next(chunk);
+        }
+        heap = heap->next;
+    }
+}
+
 void
 show_alloc_mem(void) {
+    u64 total = 0;
+    print_arena_allocs("TINY", &ctx.arena_tiny, &total);
+    print_arena_allocs("SMALL", &ctx.arena_small, &total);
+    putstr("Total : ");
+    putnbr(total, 10);
+    putstr(" bytes\n");
 }

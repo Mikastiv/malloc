@@ -64,12 +64,13 @@ chunk_split(ChunkHeader* header, const u64 size) {
     header->size = size;
 
     ChunkHeader* footer = chunk_get_footer(header);
+    const bool is_last = footer->size == 0;
     *footer = (ChunkHeader){ .size = size, .flags = header->flags };
 
     header = chunk_next(header);
     *header = (ChunkHeader){ .size = old_size - size, .flags = 0 };
     footer = chunk_get_footer(header);
-    *footer = (ChunkHeader){ .size = old_size - size, .flags = 0 };
+    *footer = (ChunkHeader){ .size = is_last ? 0 : old_size - size, .flags = 0 };
 
     return header;
 }
