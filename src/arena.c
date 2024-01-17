@@ -7,10 +7,10 @@
 
 static void
 append_heap(Arena* arena, Heap* heap, const u64 size) {
-    if (arena->head == NULL) {
+    if (arena->head == 0) {
         arena->head = heap;
         arena->head->size = size;
-        arena->head->next = NULL;
+        arena->head->next = 0;
     } else {
         Heap* old_head = arena->head;
         arena->head = heap;
@@ -22,7 +22,7 @@ append_heap(Arena* arena, Heap* heap, const u64 size) {
 bool
 arena_grow(Arena* arena) {
     const u64 size = (u64)getpagesize() * 8;
-    void* heap = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    void* heap = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if (mmap_failed(heap)) return false;
 
     append_heap(arena, heap, size);

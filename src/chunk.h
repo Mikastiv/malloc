@@ -14,16 +14,6 @@ typedef enum ChunkFlag {
     ChunkFlag_Mapped = 1 << 1,
 } ChunkFlag;
 
-typedef struct FreeChunk {
-    ChunkHeader header;
-    struct FreeChunk* prev;
-    struct FreeChunk* next;
-} FreeChunk;
-
-typedef struct Freelist {
-    FreeChunk* head;
-} Freelist;
-
 u64
 chunk_header_size(void);
 
@@ -44,3 +34,9 @@ chunk_next_header(ChunkHeader* header);
 
 u64
 chunk_calculate_size(const u64 requested_size, const bool is_mapped);
+
+ChunkHeader*
+chunk_split(ChunkHeader* header, const u64 size);
+
+ChunkHeader*
+chunk_next(ChunkHeader* header);

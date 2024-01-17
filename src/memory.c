@@ -1,6 +1,7 @@
 #include "arena.h"
 #include "chunk.h"
 #include "defines.h"
+#include "freelist.h"
 #include "types.h"
 #include "utils.h"
 
@@ -35,14 +36,14 @@ static bool
 init(void) {
     if (ctx.is_init) return true;
 
-    if (pthread_mutex_init(&mtx, NULL) != 0) return false;
+    if (pthread_mutex_init(&mtx, 0) != 0) return false;
 
     ctx.is_init = true;
 
-    ctx.arena_tiny.head = NULL;
-    ctx.arena_small.head = NULL;
-    ctx.freelist_tiny.head = NULL;
-    ctx.freelist_small.head = NULL;
+    ctx.arena_tiny.head = 0;
+    ctx.arena_small.head = 0;
+    ctx.freelist_tiny.head = 0;
+    ctx.freelist_small.head = 0;
 
     return true;
 }
@@ -51,14 +52,6 @@ static __attribute__((destructor)) void
 deinit(void) {
     if (!ctx.is_init) return;
     pthread_mutex_destroy(&mtx);
-}
-
-static char*
-get_block_from_freelist(Freelist* list, const u64 requested_size) {
-    const u64 size = chunk_calculate_size(requested_size, false);
-    (void)size;
-
-    return NULL;
 }
 
 static u64
@@ -76,15 +69,13 @@ next_appropriate_chunk(ChunkHeader* current, const u64 size) {
     return current;
 }
 
-static ChunkHeader*
-split_chunk(ChunkHeader* header) {
-}
+
 
 static char*
 get_block_from_heap(Arena arena, const u64 requested_size) {
     const u64 size = chunk_calculate_size(requested_size, false);
     Heap* heap = arena.head;
-    char* block = NULL;
+    char* block = 0;
 
     while (heap) {
         ChunkHeader* header = next_appropriate_chunk(heap_data_start(heap), size);
@@ -94,12 +85,15 @@ get_block_from_heap(Arena arena, const u64 requested_size) {
             footer = chunk_get_footer(header);
         }
 
-        if (header->size <= size) {
+        if (header->size >= size) {
             if (header->size - size > MIN_CHUNK_SIZE) {
-                ChunkHeader* other_half = split_chunk(header);
+                chunk_split(header, size);
             }
             block = chunk_data_start(header);
+            break;
         }
+
+        heap = heap->next;
     }
 
     return block;
@@ -107,15 +101,15 @@ get_block_from_heap(Arena arena, const u64 requested_size) {
 
 void*
 malloc(size_t size) {
-    lock_mutex();
-
     if (!ctx.is_init) {
         if (!init()) goto error;
     }
 
+    lock_mutex();
+
     if (size >= MIN_LARGE_SIZE) {
         const u64 chunk_size = chunk_calculate_size(size, true);
-        char* chunk = mmap(NULL, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+        char* chunk = mmap(0, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if (mmap_failed(chunk)) goto error;
 
         ChunkHeader* header = (ChunkHeader*)chunk;
@@ -127,7 +121,7 @@ malloc(size_t size) {
 
     if (size <= MAX_TINY_SIZE) {
         // get from freelist
-        char* block = get_block_from_freelist(&ctx.freelist_tiny, size);
+        char* block = freelist_get_block(&ctx.freelist_tiny, size);
         if (block) {
             unlock_mutex();
             return block;
@@ -143,7 +137,7 @@ malloc(size_t size) {
         // grow heap and get block
         if (!arena_grow(&ctx.arena_tiny)) {
             unlock_mutex();
-            return NULL;
+            return 0;
         }
 
         return get_block_from_heap(ctx.arena_tiny, size);
@@ -152,7 +146,7 @@ malloc(size_t size) {
     return get_block_from_heap(ctx.arena_small, size);
 error:
     unlock_mutex();
-    return NULL;
+    return 0;
 }
 
 void*
@@ -171,7 +165,7 @@ realloc(void* ptr, size_t size) {
         };
 
         const u64 new_chunk_size = chunk_calculate_size(size, true);
-        char* new_chunk = mmap(NULL, new_chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+        char* new_chunk = mmap(0, new_chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if (mmap_failed(new_chunk)) goto error;
 
         memcopy(new_chunk + chunk_header_size(), ptr, header->user_size);
@@ -183,11 +177,11 @@ realloc(void* ptr, size_t size) {
         return chunk_data_start(new_header);
     }
 
-    return NULL;
+    return 0;
 
 error:
     unlock_mutex();
-    return NULL;
+    return 0;
 }
 
 void

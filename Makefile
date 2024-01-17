@@ -15,8 +15,8 @@ INCDIR = include
 
 SRCDIR = src
 OBJDIR = obj
-CFILES = memory.c utils.c chunk.c heap.c arena.c
-HFILES = types.h utils.h arena.h chunk.h heap.h
+CFILES = memory.c utils.c chunk.c heap.c arena.c freelist.c
+HFILES = types.h utils.h arena.h chunk.h heap.h freelist.h
 SRC = $(addprefix $(SRCDIR)/, $(CFILES))
 INC = $(addprefix $(SRCDIR)/, $(HFILES))
 OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
@@ -35,6 +35,9 @@ $(LINK):
 
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
+
+test: all
+	$(CC) -g main.c -L. -lft_malloc -Iinclude -Wl,-rpath,.
 
 fmt:
 	@clang-format -i $(SRC) $(INC) $(INCDIR)/memory.h
