@@ -32,12 +32,6 @@ chunk_get_footer(ChunkHeader* header) {
 }
 
 ChunkHeader*
-chunk_next_header(ChunkHeader* header) {
-    char* ptr = (char*)header;
-    return (ChunkHeader*)(ptr + header->size);
-}
-
-ChunkHeader*
 chunk_next(ChunkHeader* header) {
     ChunkHeader* footer = chunk_get_footer(header);
     if (footer->size == 0) return 0;
@@ -58,11 +52,11 @@ chunk_split(ChunkHeader* header, const u64 size) {
     const u64 old_size = header->size;
     header->size = size;
     ChunkHeader* ptr = chunk_get_footer(header);
-    *ptr = (ChunkHeader){.size = size, .flags = header->flags};
+    *ptr = (ChunkHeader){ .size = size, .flags = header->flags };
 
     header = chunk_next(header);
-    *header = (ChunkHeader){.size = old_size - size, .flags = 0};
+    *header = (ChunkHeader){ .size = old_size - size, .flags = 0 };
     ptr = chunk_get_footer(header);
-    *ptr = (ChunkHeader){.size = old_size - size, .flags = 0};
+    *ptr = (ChunkHeader){ .size = old_size - size, .flags = 0 };
     return header;
 }

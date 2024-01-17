@@ -29,9 +29,6 @@ chunk_get_header(void* ptr);
 ChunkHeader*
 chunk_get_footer(ChunkHeader* header);
 
-ChunkHeader*
-chunk_next_header(ChunkHeader* header);
-
 u64
 chunk_calculate_size(const u64 requested_size, const bool is_mapped);
 

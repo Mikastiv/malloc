@@ -54,22 +54,9 @@ deinit(void) {
     pthread_mutex_destroy(&mtx);
 }
 
-static u64
-user_block_size(const u64 chunk_size) {
-    return chunk_size - chunk_metadata_size(false);
-}
-
-static ChunkHeader*
-next_appropriate_chunk(ChunkHeader* current, const u64 size) {
-    ChunkHeader* footer = chunk_get_footer(current);
-    while (user_block_size(current->size) < size && footer->size != 0) {
-        current = chunk_next_header(current);
-        footer = chunk_get_footer(current);
-    }
-    return current;
-}
-
-
+// static u64
+// user_block_size(const u64 chunk_size) {
+//     return chunk_size - chunk_metadata_size(false);
 
 static char*
 get_block_from_heap(Arena arena, const u64 requested_size) {
@@ -78,10 +65,11 @@ get_block_from_heap(Arena arena, const u64 requested_size) {
     char* block = 0;
 
     while (heap) {
-        ChunkHeader* header = next_appropriate_chunk(heap_data_start(heap), size);
+        ChunkHeader* header = heap_data_start(heap);
         ChunkHeader* footer = chunk_get_footer(header);
-        while (header->flags & ChunkFlag_Allocated && footer->size != 0) {
-            header = next_appropriate_chunk(header, size);
+        while (footer->size != 0) {
+            if ((header->flags & ChunkFlag_Allocated) == 0 && header->size >= size) break;
+            header = chunk_next(header);
             footer = chunk_get_footer(header);
         }
 
@@ -89,6 +77,9 @@ get_block_from_heap(Arena arena, const u64 requested_size) {
             if (header->size - size > MIN_CHUNK_SIZE) {
                 chunk_split(header, size);
             }
+            footer = chunk_get_footer(header);
+            header->flags |= ChunkFlag_Allocated;
+            footer->flags |= ChunkFlag_Allocated;
             block = chunk_data_start(header);
             break;
         }
@@ -140,7 +131,9 @@ malloc(size_t size) {
             return 0;
         }
 
-        return get_block_from_heap(ctx.arena_tiny, size);
+        block = get_block_from_heap(ctx.arena_tiny, size);
+        unlock_mutex();
+        return block;
     }
 
     return get_block_from_heap(ctx.arena_small, size);
