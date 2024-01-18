@@ -1,6 +1,7 @@
 #include "chunk.h"
 
 #include "defines.h"
+#include "freelist.h"
 #include "utils.h"
 
 u64
@@ -98,4 +99,10 @@ chunk_coalesce(ChunkHeader* front, ChunkHeader* back) {
     if (back_is_last) footer->size = 0;
 
     return front;
+}
+
+u64
+chunk_min_size(void) {
+    const u64 min_block_size = align_up(sizeof(FreeChunk), CHUNK_ALIGNMENT);
+    return min_block_size + chunk_metadata_size(false);
 }

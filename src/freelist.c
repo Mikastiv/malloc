@@ -39,7 +39,7 @@ freelist_get_block(Freelist* list, const u64 requested_size) {
             if (ptr->next) ptr->next->prev = ptr->prev;
         }
 
-        if (ptr->header.size - size > MIN_CHUNK_SIZE) {
+        if (ptr->header.size - size >= chunk_min_size()) {
             ChunkHeader* other = chunk_split(&ptr->header, size);
             freelist_prepend(list, other);
         }

@@ -58,3 +58,6 @@ chunk_prev(ChunkHeader* chunk);
 
 ChunkHeader*
 chunk_coalesce(ChunkHeader* front, ChunkHeader* back);
+
+u64
+chunk_min_size(void);

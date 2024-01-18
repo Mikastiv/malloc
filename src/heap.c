@@ -29,7 +29,7 @@ heap_get_block(Heap* heap, const u64 requested_size) {
         }
 
         if (header->size >= size) {
-            if (header->size - size > MIN_CHUNK_SIZE) {
+            if (header->size - size >= chunk_min_size()) {
                 chunk_split(header, size);
             }
             footer = chunk_get_footer(header);
