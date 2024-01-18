@@ -9,6 +9,14 @@ typedef struct ChunkHeader {
     u64 user_size;
 } ChunkHeader;
 
+typedef struct MappedChunk {
+    struct MappedChunk* next;
+} MappedChunk;
+
+typedef struct MappedChunkList {
+    MappedChunk* head;
+} MappedChunkList;
+
 typedef enum ChunkFlag {
     ChunkFlag_Allocated = 1 << 0,
     ChunkFlag_Mapped = 1 << 1,
@@ -19,10 +27,16 @@ u64
 chunk_header_size(void);
 
 u64
+chunk_mapped_header_size(void);
+
+u64
 chunk_metadata_size(const bool is_mapped);
 
 char*
 chunk_data_start(ChunkHeader* header);
+
+ChunkHeader*
+chunk_get_header_from_mapped(MappedChunk* mapped);
 
 ChunkHeader*
 chunk_get_header(void* ptr);

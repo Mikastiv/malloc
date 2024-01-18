@@ -7,7 +7,6 @@
 
 #include <pthread.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -18,6 +17,7 @@ typedef struct Context {
     Arena arena_small;
     Freelist freelist_tiny;
     Freelist freelist_small;
+    MappedChunkList mapped_chunks;
 } Context;
 
 static Context ctx;
@@ -45,6 +45,7 @@ init(void) {
     ctx.arena_small.head = 0;
     ctx.freelist_tiny.head = 0;
     ctx.freelist_small.head = 0;
+    ctx.mapped_chunks.head = 0;
 
     return true;
 }
@@ -54,10 +55,6 @@ deinit(void) {
     if (!ctx.is_init) return;
     pthread_mutex_destroy(&mtx);
 }
-
-// static u64
-// user_block_size(const u64 chunk_size) {
-//     return chunk_size - chunk_metadata_size(false);
 
 static char*
 get_block(Arena* arena, Freelist* list, const u64 requested_size) {
@@ -90,7 +87,11 @@ malloc(size_t size) {
         char* chunk = mmap(0, chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if (mmap_failed(chunk)) goto error;
 
-        ChunkHeader* header = (ChunkHeader*)chunk;
+        MappedChunk* mapped = (MappedChunk*)chunk;
+        mapped->next = ctx.mapped_chunks.head;
+        ctx.mapped_chunks.head = mapped;
+
+        ChunkHeader* header = chunk_get_header_from_mapped(mapped);
         *header = (ChunkHeader){ .size = chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
 
         block = chunk_data_start(header);
@@ -106,6 +107,28 @@ malloc(size_t size) {
 error:
     unlock_mutex();
     return 0;
+}
+
+static void
+remove_mapped_chunk(ChunkHeader* header) {
+    MappedChunk* chunk = (MappedChunk*)((char*)header - chunk_mapped_header_size());
+    MappedChunk* ptr = ctx.mapped_chunks.head;
+
+    if (chunk == ptr) {
+        ctx.mapped_chunks.head = ptr->next;
+        return;
+    }
+
+    MappedChunk* tmp = ptr;
+    ptr = ptr->next;
+    while (ptr) {
+        if (chunk == ptr) {
+            tmp->next = ptr->next;
+            return;
+        }
+        tmp = ptr;
+        ptr = ptr->next;
+    }
 }
 
 void*
@@ -127,9 +150,15 @@ realloc(void* ptr, size_t size) {
         char* new_chunk = mmap(0, new_chunk_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if (mmap_failed(new_chunk)) goto error;
 
+        MappedChunk* mapped = (MappedChunk*)new_chunk;
+        mapped->next = ctx.mapped_chunks.head;
+        ctx.mapped_chunks.head = mapped;
+
+        ChunkHeader* new_header = chunk_get_header_from_mapped(mapped);
         memcopy(new_chunk + chunk_header_size(), ptr, header->user_size);
-        ChunkHeader* new_header = (ChunkHeader*)new_chunk;
         *new_header = (ChunkHeader){ .size = new_chunk_size, .flags = ChunkFlag_Mapped, .user_size = size };
+
+        remove_mapped_chunk(header);
 
         munmap(header, header->size);
         unlock_mutex();
@@ -169,6 +198,7 @@ free(void* ptr) {
     ChunkHeader* header = chunk_get_header(ptr);
 
     if (header->flags & ChunkFlag_Mapped) {
+        remove_mapped_chunk(header);
         munmap(header, header->size);
     } else if (header->size + chunk_metadata_size(false) <= MAX_TINY_SIZE) {
         free_block(&ctx.freelist_tiny, header);
@@ -234,6 +264,24 @@ show_alloc_mem(void) {
     u64 total = 0;
     print_arena_allocs("TINY", &ctx.arena_tiny, &total);
     print_arena_allocs("SMALL", &ctx.arena_small, &total);
+
+    MappedChunk* ptr = ctx.mapped_chunks.head;
+    while (ptr) {
+        ChunkHeader* header = chunk_get_header_from_mapped(ptr);
+        u64 addr = (u64)chunk_data_start(header);
+        total += header->user_size;
+        putstr("LARGE : ");
+        putnbr((u64)ptr, 16);
+        putstr("\n0x");
+        putnbr((u64)addr, 16);
+        putstr(" - 0x");
+        putnbr((u64)addr + header->user_size, 16);
+        putstr(" : ");
+        putnbr(header->user_size, 10);
+        putstr(" bytes\n");
+        ptr = ptr->next;
+    }
+
     putstr("Total : ");
     putnbr(total, 10);
     putstr(" bytes\n");

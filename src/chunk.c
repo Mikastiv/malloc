@@ -9,13 +9,25 @@ chunk_header_size(void) {
 }
 
 u64
+chunk_mapped_header_size(void) {
+    return align_up(sizeof(MappedChunk), CHUNK_ALIGNMENT);
+}
+
+u64
 chunk_metadata_size(const bool is_mapped) {
-    return is_mapped ? chunk_header_size() : chunk_header_size() * 2; // header + footer
+    return is_mapped ? chunk_header_size() + chunk_mapped_header_size() : chunk_header_size() * 2; // header + footer
 }
 
 char*
 chunk_data_start(ChunkHeader* header) {
     return (char*)header + chunk_header_size();
+}
+
+ChunkHeader*
+chunk_get_header_from_mapped(MappedChunk* mapped) {
+    char* ptr = (char*)mapped;
+    ptr += chunk_mapped_header_size();
+    return (ChunkHeader*)ptr;
 }
 
 ChunkHeader*
