@@ -1,11 +1,15 @@
 #include "memory.h"
 
 int main() {
-    malloc(64);
+    void* block = malloc(43902);
+    void* block1 = malloc(64);
     malloc(64);
     malloc(126);
     malloc(32);
     malloc(1026);
-    malloc(43902);
+    show_alloc_mem();
+    free(block);
+    free(block1);
+    block = malloc(42);
     show_alloc_mem();
 }

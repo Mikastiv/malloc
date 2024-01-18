@@ -15,3 +15,12 @@ memcopy(void* dst, const void* src, u64 size);
 
 bool
 mmap_failed(void* ptr);
+
+u64
+str_len(const char* str);
+
+void
+putstr(const char* str);
+
+void
+putnbr(const u64 nbr, const u64 base);

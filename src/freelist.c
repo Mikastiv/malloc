@@ -45,9 +45,11 @@ freelist_get_block(Freelist* list, const u64 requested_size) {
         }
 
         ChunkHeader* footer = chunk_get_footer(&ptr->header);
-        ptr->header =
-            (ChunkHeader){ .size = ptr->header.size, .flags = ChunkFlag_Allocated, .user_size = requested_size };
+        const bool is_last = footer->size == 0;
+        ptr->header.flags |= ChunkFlag_Allocated;
+        ptr->header.user_size = requested_size;
         *footer = ptr->header;
+        if (is_last) footer->size = 0;
         block = chunk_data_start(&ptr->header);
     }
 
