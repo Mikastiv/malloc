@@ -53,8 +53,11 @@ deinit(void) {
 static char*
 get_block(Arena* arena, Freelist* list, const u64 requested_size) {
     // get from freelist
-    char* block = freelist_get_block(list, requested_size);
-    if (block) return block;
+    // char* block = freelist_get_block(list, requested_size);
+    // if (block) return block;
+    (void)list;
+
+    char* block = 0;
 
     // get from top of heap
     block = heap_get_block(arena->head, requested_size);
@@ -143,7 +146,8 @@ free_block(Freelist* list, ChunkHeader* header) {
         header = chunk_coalesce(header, next);
     }
 
-    freelist_prepend(list, header);
+    (void)list;
+    // freelist_prepend(list, header);
 }
 
 static void

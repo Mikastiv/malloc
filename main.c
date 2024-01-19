@@ -60,6 +60,11 @@ int main() {
     for (size_t i = 64; i < 128; i++) {
         free(blocks[i]);
     }
+    for (size_t i = 0; i < 64; i++) {
+        const size_t size = random() % 8096;
+        blocks[i] = realloc(blocks[i], size);
+        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
+    }
     for (size_t i = 64; i < 128; i++) {
         const size_t size = random() % 8096;
         blocks[i] = malloc(size);

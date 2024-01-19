@@ -1,10 +1,11 @@
 #pragma once
 
 #include "chunk.h"
+#include "freelist.h"
 #include "types.h"
 
 typedef struct Heap {
-    u64 size;
+    Freelist* freelist;
     struct Heap* next;
 } Heap;
 

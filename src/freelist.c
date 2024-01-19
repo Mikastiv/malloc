@@ -1,14 +1,11 @@
 #include "freelist.h"
 
-#include "defines.h"
-
 void
 freelist_prepend(Freelist* list, ChunkHeader* chunk) {
     FreeChunk* ptr = (FreeChunk*)chunk;
 
     if (list->head == ptr) return;
 
-    ptr->header = *chunk;
     if (list->head) {
         FreeChunk* tmp = list->head;
         list->head = ptr;

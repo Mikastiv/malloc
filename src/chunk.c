@@ -67,8 +67,8 @@ chunk_prev(ChunkHeader* header) {
 u64
 chunk_calculate_size(const u64 requested_size, const bool is_mapped) {
     const u64 user_block_size = align_up(requested_size, CHUNK_ALIGNMENT);
-    const u64 chunk_size = align_up(user_block_size + chunk_metadata_size(is_mapped), CHUNK_ALIGNMENT);
-    return chunk_size;
+    const u64 chunk_size = align_up(chunk_metadata_size(is_mapped), CHUNK_ALIGNMENT);
+    return user_block_size + chunk_size;
 }
 
 ChunkHeader*
