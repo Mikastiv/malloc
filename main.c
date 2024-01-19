@@ -41,4 +41,5 @@ int main() {
     for (size_t i = 0; i < 128; i++) {
         free(blocks[i]);
     }
+    show_alloc_mem();
 }

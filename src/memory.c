@@ -133,15 +133,15 @@ free_block(Freelist* list, ChunkHeader* header) {
     header->flags &= ~ChunkFlag_Allocated;
     footer->flags &= ~ChunkFlag_Allocated;
 
-    ChunkHeader* prev = chunk_prev(header);
-    if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
-        header = chunk_coalesce(prev, header);
-    }
+    // ChunkHeader* prev = chunk_prev(header);
+    // if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
+    //     header = chunk_coalesce(prev, header);
+    // }
 
-    ChunkHeader* next = chunk_next(header);
-    if (next && (next->flags & ChunkFlag_Allocated) == 0) {
-        header = chunk_coalesce(header, next);
-    }
+    // ChunkHeader* next = chunk_next(header);
+    // if (next && (next->flags & ChunkFlag_Allocated) == 0) {
+    //     header = chunk_coalesce(header, next);
+    // }
 
     freelist_prepend(list, header);
 }
@@ -213,8 +213,8 @@ print_arena_allocs(const char* name, Arena* arena, u64* total) {
         while (chunk) {
             const u64 addr = (u64)chunk_data_start(chunk);
             const unsigned long size = chunk->user_size;
-            *total += size;
             if (chunk->flags & ChunkFlag_Allocated) {
+                *total += size;
                 putstr("0x");
                 putnbr(addr, 16);
                 putstr(" - 0x");
