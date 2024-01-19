@@ -133,15 +133,15 @@ free_block(Freelist* list, ChunkHeader* header) {
     header->flags &= ~ChunkFlag_Allocated;
     footer->flags &= ~ChunkFlag_Allocated;
 
-    // ChunkHeader* prev = chunk_prev(header);
-    // if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
-    //     header = chunk_coalesce(prev, header);
-    // }
+    ChunkHeader* prev = chunk_prev(header);
+    if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
+        header = chunk_coalesce(prev, header);
+    }
 
-    // ChunkHeader* next = chunk_next(header);
-    // if (next && (next->flags & ChunkFlag_Allocated) == 0) {
-    //     header = chunk_coalesce(header, next);
-    // }
+    ChunkHeader* next = chunk_next(header);
+    if (next && (next->flags & ChunkFlag_Allocated) == 0) {
+        header = chunk_coalesce(header, next);
+    }
 
     freelist_prepend(list, header);
 }

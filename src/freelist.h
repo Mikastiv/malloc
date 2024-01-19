@@ -9,6 +9,7 @@ typedef struct FreeChunk {
 } FreeChunk;
 
 typedef struct Freelist {
+    u64 len;
     FreeChunk* head;
 } Freelist;
 

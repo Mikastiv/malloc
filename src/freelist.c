@@ -5,6 +5,9 @@
 void
 freelist_prepend(Freelist* list, ChunkHeader* chunk) {
     FreeChunk* ptr = (FreeChunk*)chunk;
+
+    if (list->head == ptr) return;
+
     ptr->header = *chunk;
     if (list->head) {
         FreeChunk* tmp = list->head;
@@ -17,6 +20,7 @@ freelist_prepend(Freelist* list, ChunkHeader* chunk) {
         ptr->next = 0;
         ptr->prev = 0;
     }
+    list->len++;
 }
 
 char*
@@ -38,6 +42,7 @@ freelist_get_block(Freelist* list, const u64 requested_size) {
             ptr->prev->next = ptr->next;
             if (ptr->next) ptr->next->prev = ptr->prev;
         }
+        list->len--;
 
         if (ptr->header.size - size >= chunk_min_size()) {
             ChunkHeader* other = chunk_split(&ptr->header, size);
