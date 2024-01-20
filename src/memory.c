@@ -235,6 +235,7 @@ print_arena_allocs(const char* name, Arena* arena, u64* total) {
 
 void
 show_alloc_mem(void) {
+    lock_mutex();
     u64 total = 0;
     print_arena_allocs("TINY", &ctx.arena_tiny, &total);
     print_arena_allocs("SMALL", &ctx.arena_small, &total);
@@ -259,4 +260,5 @@ show_alloc_mem(void) {
     putstr("Total : ");
     putnbr(total, 10);
     putstr(" bytes\n");
+    unlock_mutex();
 }

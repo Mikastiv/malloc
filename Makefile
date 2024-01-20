@@ -6,7 +6,7 @@ NAME = libft_malloc_$(HOSTTYPE).so
 LINK = libft_malloc.so
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -g -fno-strict-aliasing
+CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -fno-strict-aliasing -g
 
 LN = ln -sf
 RM = rm -f
@@ -36,8 +36,11 @@ $(LINK):
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
+release: CFLAGS += -flto -O3
+release: all
+
 test: all
-	$(CC) -g -fno-strict-aliasing main.c -L. -lft_malloc -Iinclude -Wl,-rpath,.
+	$(CC) -g main.c -L. -lft_malloc -Iinclude -Wl,-rpath,.
 
 fmt:
 	@clang-format -i $(SRC) $(INC) $(INCDIR)/memory.h
@@ -50,4 +53,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re release

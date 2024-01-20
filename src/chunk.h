@@ -17,7 +17,7 @@ typedef struct MappedChunkList {
     MappedChunk* head;
 } MappedChunkList;
 
-typedef enum ChunkFlag {
+typedef enum ChunkFlag : u8 {
     ChunkFlag_Allocated = 1 << 0,
     ChunkFlag_Mapped = 1 << 1,
     ChunkFlag_First = 1 << 2,
