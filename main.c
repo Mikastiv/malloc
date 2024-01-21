@@ -52,7 +52,6 @@ random(void) {
 
 int main() {
     void** blocks = malloc(10 * sizeof(void*));
-    free(blocks);
     for (size_t i = 0; i < 10; i++) {
         const size_t size = random() % 8096;
         blocks[i] = malloc(size);

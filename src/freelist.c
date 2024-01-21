@@ -27,7 +27,7 @@ freelist_remove(Freelist* list, Chunk* chunk) {
         while (ptr) {
             if (ptr == chunk) {
                 ptr->prev->next = ptr->next;
-                ptr->next->prev = ptr->prev;
+                if (ptr->next) ptr->next->prev = ptr->prev;
                 return;
             }
             ptr = ptr->next;
