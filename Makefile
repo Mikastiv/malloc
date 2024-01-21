@@ -54,6 +54,6 @@ clean:
 fclean: clean
 	$(RM) $(NAME) $(LINK)
 
-re: fclean all
+re: fclean debug
 
 .PHONY: all clean fclean re release debug test

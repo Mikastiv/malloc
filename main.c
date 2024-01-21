@@ -1,10 +1,21 @@
 #include "memory.h"
 
+#include <unistd.h>
+
 static void
 memoryset(void* dst, const char v, const size_t size) {
     char* dst_ptr = dst;
     for (size_t i = 0; i < size; ++i) {
         dst_ptr[i] = v;
+    }
+}
+
+void
+memcopy(void* dst, const void* src, const size_t size) {
+    char* dst_ptr = dst;
+    const char* src_ptr = src;
+    for (size_t i = 0; i < size; ++i) {
+        dst_ptr[i] = src_ptr[i];
     }
 }
 
@@ -60,4 +71,11 @@ int main() {
     }
     free(blocks);
     show_alloc_mem();
+
+    char* string = malloc(60);
+    memcopy(string, "Hello World\n", 13);
+
+    write(1, string, 13);
+    string = realloc(string, 90);
+    write(1, string, 13);
 }
