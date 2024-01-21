@@ -179,7 +179,6 @@ inner_realloc(void* ptr, const u64 size) {
         chunk->user_size = size;
         block = ptr;
     } else {
-        // TODO: check for free block after
         block = inner_malloc(size);
         memcopy(block, ptr, chunk->user_size);
         inner_free(ptr);

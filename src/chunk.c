@@ -11,7 +11,7 @@ chunk_alignment(void) {
 
 u64
 chunk_min_size(void) {
-    return align_up(sizeof(Chunk) + chunk_alignment(), chunk_alignment());
+    return align_up(sizeof(Chunk), chunk_alignment());
 }
 
 u64
