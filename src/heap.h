@@ -1,25 +1,28 @@
 #pragma once
 
-#include "chunk.h"
 #include "freelist.h"
-#include "types.h"
+
+#include <stdbool.h>
 
 typedef struct Heap {
-    Freelist* freelist;
+    Freelist freelist;
     struct Heap* next;
 } Heap;
 
 u64
-heap_metadata_size(void);
-
-ChunkHeader*
-heap_data_start(Heap* heap);
+heap_size(void);
 
 u64
 heap_metadata_size(void);
 
-ChunkHeader*
-heap_data_start(Heap* heap);
+Heap*
+heap_from_ptr(void* ptr);
 
-char*
-heap_get_block(Heap* heap, const u64 requested_size);
+bool
+ptr_in_heap(Heap* heap, void* ptr);
+
+Chunk*
+heap_to_chunk(Heap* heap);
+
+Chunk*
+heap_find_chunk(Heap* heap, const u64 size);

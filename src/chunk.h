@@ -1,13 +1,24 @@
 #pragma once
 
 #include "types.h"
+
 #include <stdbool.h>
 
-typedef struct ChunkHeader {
-    u64 flags : 3;
-    u64 size  : 61;
+typedef enum ChunkFlag {
+    ChunkFlag_Allocated = 1 << 0,
+    ChunkFlag_Mapped = 1 << 1,
+    ChunkFlag_First = 1 << 2,
+    ChunkFlag_Last = 1 << 3,
+} ChunkFlag;
+
+typedef struct Chunk {
+    u64 prev_size;
+    u64 flags : 4;
+    u64 size  : 60;
     u64 user_size;
-} ChunkHeader;
+    struct Chunk* next; // only use if free
+    struct Chunk* prev; // only use if free
+} Chunk;
 
 typedef struct MappedChunk {
     struct MappedChunk* next;
@@ -17,47 +28,53 @@ typedef struct MappedChunkList {
     MappedChunk* head;
 } MappedChunkList;
 
-typedef enum ChunkFlag : u8 {
-    ChunkFlag_Allocated = 1 << 0,
-    ChunkFlag_Mapped = 1 << 1,
-    ChunkFlag_First = 1 << 2,
-} ChunkFlag;
+u64
+chunk_alignment(void);
 
 u64
-chunk_header_size(void);
+chunk_min_size(void);
 
 u64
-chunk_mapped_header_size(void);
+chunk_max_tiny_size(void);
+
+u64
+chunk_min_large_size(void);
 
 u64
 chunk_metadata_size(const bool is_mapped);
 
-char*
-chunk_data_start(ChunkHeader* header);
+u64
+mapped_chunk_metadata_size(void);
 
-ChunkHeader*
-chunk_get_header_from_mapped(MappedChunk* mapped);
+void
+chunk_set_footer(Chunk* chunk);
 
-ChunkHeader*
-chunk_get_header(void* ptr);
+Chunk*
+chunk_from_mem(void* mem);
 
-ChunkHeader*
-chunk_get_footer(ChunkHeader* header);
+void*
+chunk_to_mem(Chunk* chunk);
+
+Chunk*
+chunk_from_mapped(MappedChunk* mapped);
+
+MappedChunk*
+chunk_to_mapped(Chunk* chunk);
+
+Chunk*
+chunk_next(Chunk* chunk);
+
+Chunk*
+chunk_prev(Chunk* chunk);
 
 u64
 chunk_calculate_size(const u64 requested_size, const bool is_mapped);
 
-ChunkHeader*
-chunk_split(ChunkHeader* header, const u64 size);
-
-ChunkHeader*
-chunk_next(ChunkHeader* header);
-
-ChunkHeader*
-chunk_prev(ChunkHeader* chunk);
-
-ChunkHeader*
-chunk_coalesce(ChunkHeader* front, ChunkHeader* back);
-
 u64
-chunk_min_size(void);
+chunk_usable_size(Chunk* chunk);
+
+Chunk*
+chunk_coalesce(Chunk* front, Chunk* back);
+
+Chunk*
+chunk_split(Chunk* chunk, const u64 size);

@@ -8,8 +8,5 @@ typedef struct Arena {
     Heap* head;
 } Arena;
 
-Heap*
+bool
 arena_grow(Arena* arena);
-
-Heap*
-arena_find_heap(Arena* arena, void* ptr);
