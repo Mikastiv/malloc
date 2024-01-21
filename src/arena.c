@@ -14,6 +14,7 @@ prepend_heap(Arena* arena, Heap* heap) {
         arena->head = heap;
         arena->head->next = 0;
     }
+    arena->len++;
 }
 
 bool
@@ -56,4 +57,24 @@ arena_find_chunk(Arena* arena, const u64 size) {
         heap = heap->next;
     }
     return chunk;
+}
+
+void
+arena_remove_heap(Arena* arena, Heap* heap) {
+    Heap* ptr = arena->head;
+    arena->len--;
+    if (ptr == heap) {
+        arena->head = ptr->next;
+    } else {
+        Heap* tmp = ptr;
+        ptr = ptr->next;
+        while (ptr) {
+            if (ptr == heap) {
+                tmp->next = heap->next;
+                return;
+            }
+            tmp = ptr;
+            ptr = ptr->next;
+        }
+    }
 }

@@ -1,26 +1,10 @@
 #include "memory.h"
 
 static void
-memoryset(void* dst, const size_t v, size_t size) {
-    char* dst_bytes = (char*)dst;
-
-    if (size > 32) {
-        size_t* dst_big = (size_t*)dst;
-
-        size_t blocks_count = size / sizeof(size_t);
-        size = size % sizeof(size_t);
-
-        for (size_t i = 0; i < blocks_count; ++i) {
-            dst_big[i] = v;
-        }
-
-        dst_bytes += blocks_count * sizeof(size_t);
-    }
-
+memoryset(void* dst, const char v, const size_t size) {
+    char* dst_ptr = dst;
     for (size_t i = 0; i < size; ++i) {
-        for (size_t i = 0; i < size; ++i) {
-            dst_bytes[i] = (char)v;
-        }
+        dst_ptr[i] = v;
     }
 }
 
@@ -51,28 +35,27 @@ random(void) {
 }
 
 int main() {
-    void** blocks = malloc(10 * sizeof(void*));
-    for (size_t i = 0; i < 10; i++) {
+    void** blocks = malloc(256 * sizeof(void*));
+    for (size_t i = 0; i < 256; i++) {
         const size_t size = random() % 8096;
         blocks[i] = malloc(size);
-        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
+        memoryset(blocks[i], 0xAA, size);
     }
-    show_alloc_mem();
-    for (size_t i = 5; i < 10; i++) {
+    for (size_t i = 128; i < 256; i++) {
         free(blocks[i]);
     }
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < 128; i++) {
         const size_t size = random() % 8096;
         blocks[i] = realloc(blocks[i], size);
-        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
+        memoryset(blocks[i], 0xAA, size);
     }
-    for (size_t i = 5; i < 10; i++) {
+    for (size_t i = 128; i < 256; i++) {
         const size_t size = random() % 8096;
         blocks[i] = malloc(size);
-        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
+        memoryset(blocks[i], 0xAA, size);
     }
     show_alloc_mem();
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 256; i++) {
         free(blocks[i]);
     }
     free(blocks);

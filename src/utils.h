@@ -11,7 +11,7 @@ u64
 align_up(const u64 addr, const u64 alignment);
 
 void
-memcopy(void* dst, const void* src, u64 size);
+memcopy(void* dst, const void* src, const u64 size);
 
 bool
 mmap_failed(void* ptr);

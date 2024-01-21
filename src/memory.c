@@ -148,7 +148,12 @@ free_chunk(Arena* arena, Chunk* chunk) {
         chunk = chunk_coalesce(chunk, next);
     }
 
-    freelist_prepend(&heap->freelist, chunk);
+    if (chunk->size == heap_size() - heap_metadata_size() && arena->len > 1) {
+        arena_remove_heap(arena, heap);
+        munmap(heap, heap_size());
+    } else {
+        freelist_prepend(&heap->freelist, chunk);
+    }
 }
 
 void
