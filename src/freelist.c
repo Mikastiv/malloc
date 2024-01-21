@@ -16,3 +16,21 @@ freelist_prepend(Freelist* list, Chunk* chunk) {
         chunk->prev = 0;
     }
 }
+
+void
+freelist_remove(Freelist* list, Chunk* chunk) {
+    if (list->head == chunk) {
+        list->head = chunk->next;
+        if (list->head) list->head->prev = 0;
+    } else {
+        Chunk* ptr = list->head;
+        while (ptr) {
+            if (ptr == chunk) {
+                ptr->prev->next = ptr->next;
+                ptr->next->prev = ptr->prev;
+                return;
+            }
+            ptr = ptr->next;
+        }
+    }
+}

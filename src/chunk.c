@@ -11,7 +11,7 @@ chunk_alignment(void) {
 
 u64
 chunk_min_size(void) {
-    return align_up(sizeof(Chunk), chunk_alignment());
+    return align_up(sizeof(Chunk) + chunk_alignment(), chunk_alignment());
 }
 
 u64
@@ -106,12 +106,16 @@ chunk_split(Chunk* chunk, const u64 size) {
     const u64 old_size = chunk->size;
     chunk->size = size;
     chunk->flags &= ~ChunkFlag_Last;
-    chunk_set_footer(chunk);
 
     Chunk* next = chunk_next(chunk);
     next->prev_size = size;
     next->size = old_size - size;
-    next->flags = is_last ? ChunkFlag_Last : 0;
+    if (is_last) {
+        next->flags = ChunkFlag_Last;
+    } else {
+        next->flags = 0;
+        chunk_set_footer(next);
+    }
 
     return next;
 }

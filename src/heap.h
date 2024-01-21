@@ -15,9 +15,6 @@ heap_size(void);
 u64
 heap_metadata_size(void);
 
-Heap*
-heap_from_ptr(void* ptr);
-
 bool
 ptr_in_heap(Heap* heap, void* ptr);
 

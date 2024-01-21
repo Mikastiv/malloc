@@ -88,12 +88,15 @@ get_block(Arena* arena, const u64 requested_size) {
         }
     }
 
+    freelist_remove(&heap->freelist, chunk);
+
     if (chunk->size - size >= chunk_min_size()) {
         Chunk* other = chunk_split(chunk, size);
         freelist_prepend(&heap->freelist, other);
     }
 
     chunk->flags |= ChunkFlag_Allocated;
+    chunk->user_size = requested_size;
 
     return chunk_to_mem(chunk);
 }
@@ -118,7 +121,7 @@ inner_malloc(const u64 size) {
         chunk->user_size = size;
 
         block = chunk_to_mem(chunk);
-    } else if (unmapped_size <= chunk_min_size()) {
+    } else if (unmapped_size <= chunk_max_tiny_size()) {
         block = get_block(&ctx.arena_tiny, size);
     } else {
         block = get_block(&ctx.arena_small, size);
@@ -131,17 +134,20 @@ static void
 free_chunk(Arena* arena, Chunk* chunk) {
     chunk->flags &= ~ChunkFlag_Allocated;
 
+    Heap* heap = arena_find_heap(arena, chunk);
+
     Chunk* prev = chunk_prev(chunk);
     if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
+        freelist_remove(&heap->freelist, prev);
         chunk = chunk_coalesce(prev, chunk);
     }
 
     Chunk* next = chunk_next(chunk);
     if (next && (next->flags & ChunkFlag_Allocated) == 0) {
+        freelist_remove(&heap->freelist, next);
         chunk = chunk_coalesce(chunk, next);
     }
 
-    Heap* heap = arena_find_heap(arena, chunk);
     freelist_prepend(&heap->freelist, chunk);
 }
 
@@ -152,7 +158,7 @@ inner_free(void* ptr) {
         MappedChunk* mapped = chunk_to_mapped(chunk);
         remove_mapped_chunk(mapped);
         munmap(mapped, chunk->size);
-    } else if (chunk->size <= chunk_min_size()) {
+    } else if (chunk->size <= chunk_max_tiny_size()) {
         free_chunk(&ctx.arena_tiny, chunk);
     } else {
         free_chunk(&ctx.arena_small, chunk);

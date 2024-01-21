@@ -51,27 +51,29 @@ random(void) {
 }
 
 int main() {
-    void** blocks = malloc(256 * sizeof(void*));
-    for (size_t i = 0; i < 128; i++) {
-        const size_t size = random() % 8096;
-        blocks[i] = malloc(size);
-        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
-    }
-    for (size_t i = 64; i < 128; i++) {
-        free(blocks[i]);
-    }
-    for (size_t i = 0; i < 64; i++) {
-        const size_t size = random() % 8096;
-        blocks[i] = realloc(blocks[i], size);
-        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
-    }
-    for (size_t i = 64; i < 128; i++) {
+    void** blocks = malloc(10 * sizeof(void*));
+    free(blocks);
+    for (size_t i = 0; i < 10; i++) {
         const size_t size = random() % 8096;
         blocks[i] = malloc(size);
         memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
     }
     show_alloc_mem();
-    for (size_t i = 0; i < 128; i++) {
+    for (size_t i = 5; i < 10; i++) {
+        free(blocks[i]);
+    }
+    for (size_t i = 0; i < 5; i++) {
+        const size_t size = random() % 8096;
+        blocks[i] = realloc(blocks[i], size);
+        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
+    }
+    for (size_t i = 5; i < 10; i++) {
+        const size_t size = random() % 8096;
+        blocks[i] = malloc(size);
+        memoryset(blocks[i], 0xAAAAAAAABBBBBBBBULL, size);
+    }
+    show_alloc_mem();
+    for (size_t i = 0; i < 10; i++) {
         free(blocks[i]);
     }
     free(blocks);

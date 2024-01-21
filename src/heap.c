@@ -15,14 +15,9 @@ heap_metadata_size(void) {
     return align_up(sizeof(Heap), chunk_alignment());
 }
 
-Heap*
-heap_from_ptr(void* ptr) {
-    return (Heap*)align_down((u64)ptr, heap_size());
-}
-
 bool
 ptr_in_heap(Heap* heap, void* ptr) {
-    return heap_from_ptr(ptr) == heap;
+    return (u64)heap < (u64)ptr && (u64)heap + heap_size() >= (u64)ptr;
 }
 
 Chunk*
