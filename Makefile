@@ -24,9 +24,6 @@ OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 
-debug: CFLAGS += -g
-debug: all
-
 all: $(NAME) $(LINK)
 
 $(NAME): $(OBJDIR) $(OBJ)
@@ -38,6 +35,9 @@ $(LINK):
 
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
+
+debug: CFLAGS += -g
+debug: all
 
 release: CFLAGS += -flto -O3
 release: all
@@ -54,6 +54,6 @@ clean:
 fclean: clean
 	$(RM) $(NAME) $(LINK)
 
-re: fclean debug
+re: fclean all
 
 .PHONY: all clean fclean re release debug test
