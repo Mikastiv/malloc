@@ -6,7 +6,7 @@ NAME = libft_malloc_$(HOSTTYPE).so
 LINK = libft_malloc.so
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -fno-strict-aliasing -g
+CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -fno-strict-aliasing
 
 LN = ln -sf
 RM = rm -f
@@ -24,6 +24,9 @@ OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 
+debug: CFLAGS += -g
+debug: all
+
 all: $(NAME) $(LINK)
 
 $(NAME): $(OBJDIR) $(OBJ)
@@ -39,7 +42,7 @@ $(OBJDIR):
 release: CFLAGS += -flto -O3
 release: all
 
-test: all
+test: debug
 	$(CC) -g main.c -L. -lft_malloc -Iinclude -Wl,-rpath,.
 
 fmt:
@@ -53,4 +56,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re release
+.PHONY: all clean fclean re release debug test
