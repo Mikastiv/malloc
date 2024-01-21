@@ -93,6 +93,8 @@ get_block(Arena* arena, const u64 requested_size) {
         freelist_prepend(&heap->freelist, other);
     }
 
+    chunk->flags |= ChunkFlag_Allocated;
+
     return chunk_to_mem(chunk);
 }
 
