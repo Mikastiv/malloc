@@ -27,16 +27,16 @@ unlock_mutex(void) {
     return pthread_mutex_unlock(&mtx);
 }
 
-static bool
-init(void) {
-    if (ctx.is_init) return true;
+// static bool
+// init(void) {
+//     if (ctx.is_init) return true;
 
-    if (pthread_mutex_init(&mtx, 0) != 0) return false;
+//     if (pthread_mutex_init(&mtx, 0) != 0) return false;
 
-    ctx.is_init = true;
+//     ctx.is_init = true;
 
-    return true;
-}
+//     return true;
+// }
 
 static __attribute__((destructor)) void
 deinit(void) {
@@ -148,7 +148,7 @@ free_chunk(Arena* arena, Chunk* chunk) {
         chunk = chunk_coalesce(chunk, next);
     }
 
-    if (chunk->size == heap_size() - heap_metadata_size() && arena->len > 1) {
+    if (chunk->size == heap_size() - heap_metadata_size()) {
         arena_remove_heap(arena, heap);
         munmap(heap, heap_size());
     } else {
@@ -211,18 +211,18 @@ inner_realloc(void* ptr, const u64 size) {
     return block;
 }
 
-void*
-malloc(size_t size) {
-    if (!ctx.is_init) {
-        if (!init()) return 0;
-    }
+// void*
+// malloc(size_t size) {
+//     if (!ctx.is_init) {
+//         if (!init()) return 0;
+//     }
 
-    lock_mutex();
-    void* block = inner_malloc(size);
-    unlock_mutex();
+//     lock_mutex();
+//     void* block = inner_malloc(size);
+//     unlock_mutex();
 
-    return block;
-}
+//     return block;
+// }
 
 void
 free(void* ptr) {

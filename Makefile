@@ -6,7 +6,7 @@ NAME = libft_malloc_$(HOSTTYPE).so
 LINK = libft_malloc.so
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -fno-strict-aliasing
+CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC
 
 LN = ln -sf
 RM = rm -f
