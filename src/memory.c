@@ -172,17 +172,41 @@ inner_free(void* ptr) {
 
 void*
 inner_realloc(void* ptr, const u64 size) {
-    void* block = 0;
-
     Chunk* chunk = chunk_from_mem(ptr);
     if (chunk_usable_size(chunk) >= size) {
         chunk->user_size = size;
-        block = ptr;
-    } else {
-        block = inner_malloc(size);
-        memcopy(block, ptr, chunk->user_size);
-        inner_free(ptr);
+        return ptr;
     }
+
+    const bool new_size_not_mapped = chunk_calculate_size(size, true) < chunk_min_large_size();
+    if ((chunk->flags & ChunkFlag_Mapped) == 0 && new_size_not_mapped) {
+        const u64 new_size = chunk_calculate_size(size, false);
+        const bool change_category = chunk->size <= chunk_max_tiny_size() && new_size > chunk_max_tiny_size();
+        if (!change_category) {
+            Chunk* next = chunk_next(chunk);
+            if (next && (next->flags & ChunkFlag_Allocated) == 0 && chunk->size + next->size >= new_size) {
+                Heap* heap = arena_find_heap(&ctx.arena_tiny, next);
+                if (!heap) {
+                    heap = arena_find_heap(&ctx.arena_small, next);
+                }
+
+                freelist_remove(&heap->freelist, next);
+
+                chunk = chunk_coalesce(chunk, next);
+                if (chunk->size - size >= chunk_min_size()) {
+                    Chunk* other = chunk_split(chunk, size);
+                    freelist_prepend(&heap->freelist, other);
+                }
+
+                chunk->user_size = size;
+                return chunk_to_mem(chunk);
+            }
+        }
+    }
+
+    void* block = inner_malloc(size);
+    memcopy(block, ptr, chunk->user_size);
+    inner_free(ptr);
 
     return block;
 }
