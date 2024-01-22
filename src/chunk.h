@@ -78,3 +78,9 @@ chunk_coalesce(Chunk* front, Chunk* back);
 
 Chunk*
 chunk_split(Chunk* chunk, const u64 size);
+
+bool
+chunk_is_mapped(Chunk* chunk);
+
+bool
+chunk_is_allocated(Chunk* chunk);

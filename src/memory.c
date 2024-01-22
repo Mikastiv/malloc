@@ -137,13 +137,13 @@ free_chunk(Arena* arena, Chunk* chunk) {
     Heap* heap = arena_find_heap(arena, chunk);
 
     Chunk* prev = chunk_prev(chunk);
-    if (prev && (prev->flags & ChunkFlag_Allocated) == 0) {
+    if (prev && !chunk_is_allocated(prev)) {
         freelist_remove(&heap->freelist, prev);
         chunk = chunk_coalesce(prev, chunk);
     }
 
     Chunk* next = chunk_next(chunk);
-    if (next && (next->flags & ChunkFlag_Allocated) == 0) {
+    if (next && !chunk_is_allocated(next)) {
         freelist_remove(&heap->freelist, next);
         chunk = chunk_coalesce(chunk, next);
     }
@@ -159,7 +159,7 @@ free_chunk(Arena* arena, Chunk* chunk) {
 void
 inner_free(void* ptr) {
     Chunk* chunk = chunk_from_mem(ptr);
-    if (chunk->flags & ChunkFlag_Mapped) {
+    if (chunk_is_mapped(chunk)) {
         MappedChunk* mapped = chunk_to_mapped(chunk);
         remove_mapped_chunk(mapped);
         munmap(mapped, chunk->size);
@@ -179,12 +179,12 @@ inner_realloc(void* ptr, const u64 size) {
     }
 
     const bool new_size_not_mapped = chunk_calculate_size(size, true) < chunk_min_large_size();
-    if ((chunk->flags & ChunkFlag_Mapped) == 0 && new_size_not_mapped) {
+    if (!chunk_is_mapped(chunk) && new_size_not_mapped) {
         const u64 new_size = chunk_calculate_size(size, false);
         const bool change_category = chunk->size <= chunk_max_tiny_size() && new_size > chunk_max_tiny_size();
         if (!change_category) {
             Chunk* next = chunk_next(chunk);
-            if (next && (next->flags & ChunkFlag_Allocated) == 0 && chunk->size + next->size >= new_size) {
+            if (next && !chunk_is_allocated(next) && chunk->size + next->size >= new_size) {
                 Heap* heap = arena_find_heap(&ctx.arena_tiny, next);
                 if (!heap) {
                     heap = arena_find_heap(&ctx.arena_small, next);
@@ -260,7 +260,7 @@ print_arena_allocs(const char* name, Arena* arena, u64* total) {
         while (chunk) {
             const u64 addr = (u64)chunk_to_mem(chunk);
             const unsigned long size = chunk->user_size;
-            if (chunk->flags & ChunkFlag_Allocated) {
+            if (chunk_is_allocated(chunk)) {
                 *total += size;
                 putstr("0x");
                 putnbr(addr, 16);

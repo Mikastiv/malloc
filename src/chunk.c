@@ -82,7 +82,7 @@ chunk_calculate_size(const u64 requested_size, const bool is_mapped) {
 
 u64
 chunk_usable_size(Chunk* chunk) {
-    const u64 metadata_size = chunk_metadata_size(chunk->flags & ChunkFlag_Mapped);
+    const u64 metadata_size = chunk_metadata_size(chunk_is_mapped(chunk));
     return chunk->size - metadata_size;
 }
 
@@ -118,4 +118,14 @@ chunk_split(Chunk* chunk, const u64 size) {
     }
 
     return next;
+}
+
+bool
+chunk_is_mapped(Chunk* chunk) {
+    return chunk->flags & ChunkFlag_Mapped;
+}
+
+bool
+chunk_is_allocated(Chunk* chunk) {
+    return chunk->flags & ChunkFlag_Allocated;
 }
