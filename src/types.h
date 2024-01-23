@@ -21,9 +21,9 @@ typedef enum ChunkFlag {
 
 typedef struct Chunk {
     u64 prev_size;
+    u64 user_size;
     u64 flags : 4;
     u64 size  : 60;
-    u64 user_size;
     struct Chunk* next; // only use if free
     struct Chunk* prev; // only use if free
 } Chunk;

@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <unistd.h>
 
 typedef struct Context {
     Arena arenas[2];
@@ -46,6 +47,7 @@ enough_memory(const u64 requested_size) {
 static void
 remove_mapped_chunk(MappedChunk* mapped) {
     MappedChunk* ptr = ctx.mapped_chunks.head;
+    if (!ptr) return;
 
     if (mapped == ptr) {
         ctx.mapped_chunks.head = ptr->next;
@@ -62,6 +64,19 @@ remove_mapped_chunk(MappedChunk* mapped) {
         tmp = ptr;
         ptr = ptr->next;
     }
+}
+
+static bool
+memory_is_valid(void* ptr) {
+    Heap* heap = arena_find_heap(&ctx.arenas[ArenaType_Tiny], ptr);
+    if (!heap) heap = arena_find_heap(&ctx.arenas[ArenaType_Small], ptr);
+
+    return heap != 0;
+}
+
+static bool
+memory_is_aligned(void* ptr) {
+    return align_down((u64)ptr, chunk_alignment()) == (u64)ptr;
 }
 
 static void*
@@ -125,7 +140,8 @@ inner_malloc(const u64 size) {
     }
 
     const ArenaType idx = arena_select(chunk_unmapped_size(size));
-    return get_block(&ctx.arenas[idx], size);
+    void* block = get_block(&ctx.arenas[idx], size);
+    return block;
 }
 
 static void
@@ -133,6 +149,7 @@ free_chunk(Arena* arena, Chunk* chunk) {
     chunk->flags &= ~ChunkFlag_Allocated;
 
     Heap* heap = arena_find_heap(arena, chunk);
+    if (!heap) return;
 
     Chunk* prev = chunk_prev(chunk);
     if (prev && !chunk_is_allocated(prev)) {
@@ -158,6 +175,7 @@ free_chunk(Arena* arena, Chunk* chunk) {
 void
 inner_free(void* ptr) {
     Chunk* chunk = chunk_from_mem(ptr);
+    if (!memory_is_aligned(chunk)) return;
     if (chunk_is_mapped(chunk)) {
         MappedChunk* mapped = chunk_to_mapped(chunk);
         remove_mapped_chunk(mapped);
@@ -166,6 +184,8 @@ inner_free(void* ptr) {
         return;
     }
 
+    if (!memory_is_valid(ptr)) return;
+
     const ArenaType idx = arena_select(chunk->size);
     free_chunk(&ctx.arenas[idx], chunk);
 }
@@ -173,11 +193,15 @@ inner_free(void* ptr) {
 void*
 inner_realloc(void* ptr, const u64 size) {
     Chunk* chunk = chunk_from_mem(ptr);
+    if (!memory_is_aligned(chunk)) return 0;
+    if (!chunk_is_mapped(chunk) && !memory_is_valid(ptr)) return 0;
+
     if (chunk_usable_size(chunk) >= size) {
         chunk->user_size = size;
         return ptr;
     }
 
+    // TODO: check for free block after
     // const bool new_size_not_mapped = chunk_mapped_size(size) < chunk_min_large_size();
     // if (!chunk_is_mapped(chunk) && new_size_not_mapped) {
     //     const u64 new_size = chunk_unmapped_size(size);
