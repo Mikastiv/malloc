@@ -6,7 +6,7 @@ NAME = libft_malloc_$(HOSTTYPE).so
 LINK = libft_malloc.so
 
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC
+CFLAGS = -Wall -Wextra -Werror -Wpedantic -fPIC -fno-strict-aliasing
 
 LN = ln -sf
 RM = rm -f
@@ -15,8 +15,8 @@ INCDIR = include
 
 SRCDIR = src
 OBJDIR = obj
-CFILES = memory.c utils.c chunk.c heap.c arena.c freelist.c
-HFILES = types.h utils.h arena.h chunk.h heap.h freelist.h
+CFILES = memory.c utils.c chunk.c heap.c arena.c freelist.c debug.c
+HFILES = types.h utils.h arena.h chunk.h heap.h freelist.h debug.h
 SRC = $(addprefix $(SRCDIR)/, $(CFILES))
 INC = $(addprefix $(SRCDIR)/, $(HFILES))
 OBJ = $(addprefix $(OBJDIR)/, $(CFILES:.c=.o))

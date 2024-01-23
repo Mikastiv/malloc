@@ -23,6 +23,7 @@ ft_strcpy(char* dst, const char* src) {
     for (size_t i = 0; i < len; ++i) {
         dst[i] = src[i];
     }
+    dst[len] = 0;
 }
 
 static size_t

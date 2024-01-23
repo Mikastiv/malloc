@@ -4,6 +4,8 @@
 #include "heap.h"
 #include "utils.h"
 
+#include "debug.h"
+
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
@@ -211,9 +213,13 @@ inner_realloc(void* ptr, const u64 size) {
 
 void*
 malloc(size_t size) {
+    if (size == 0) size = 1;
     lock_mutex();
     void* block = inner_malloc(size);
     unlock_mutex();
+
+    check_all_mem(&ctx.arenas[0]);
+    check_all_mem(&ctx.arenas[1]);
 
     return block;
 }
@@ -225,6 +231,9 @@ free(void* ptr) {
     lock_mutex();
     inner_free(ptr);
     unlock_mutex();
+
+    check_all_mem(&ctx.arenas[0]);
+    check_all_mem(&ctx.arenas[1]);
 }
 
 void*
@@ -238,6 +247,9 @@ realloc(void* ptr, size_t size) {
     lock_mutex();
     void* block = inner_realloc(ptr, size);
     unlock_mutex();
+
+    check_all_mem(&ctx.arenas[0]);
+    check_all_mem(&ctx.arenas[1]);
 
     return block;
 }
