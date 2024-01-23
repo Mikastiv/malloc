@@ -176,6 +176,7 @@ void
 inner_free(void* ptr) {
     Chunk* chunk = chunk_from_mem(ptr);
     if (!memory_is_aligned(chunk)) return;
+    if (!chunk_is_allocated(chunk)) return;
     if (chunk_is_mapped(chunk)) {
         MappedChunk* mapped = chunk_to_mapped(chunk);
         remove_mapped_chunk(mapped);
@@ -194,6 +195,7 @@ void*
 inner_realloc(void* ptr, const u64 size) {
     Chunk* chunk = chunk_from_mem(ptr);
     if (!memory_is_aligned(chunk)) return 0;
+    if (!chunk_is_allocated(chunk)) return 0;
     if (!chunk_is_mapped(chunk) && !memory_is_valid(ptr)) return 0;
 
     if (chunk_usable_size(chunk) >= size) {
