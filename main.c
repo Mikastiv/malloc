@@ -29,7 +29,7 @@ rotate_left(const size_t n, const size_t d) {
 }
 
 static size_t
-random(void) {
+randomnumber(void) {
     static size_t state[4] = {23, 912349023, 123612, 1029346218764};
 
     const size_t r = rotate_left(state[0] + state[3], 23) + state[0];
@@ -48,7 +48,7 @@ random(void) {
 int main() {
     void** blocks = malloc(256 * sizeof(void*));
     for (size_t i = 0; i < 256; i++) {
-        const size_t size = random() % 8096;
+        const size_t size = randomnumber() % 1024 * 64;
         blocks[i] = malloc(size);
         memoryset(blocks[i], 0xAA, size);
     }
@@ -56,12 +56,12 @@ int main() {
         free(blocks[i]);
     }
     for (size_t i = 0; i < 128; i++) {
-        const size_t size = random() % 8096;
+        const size_t size = randomnumber() % 1024 * 64;
         blocks[i] = realloc(blocks[i], size);
         memoryset(blocks[i], 0xAA, size);
     }
     for (size_t i = 128; i < 256; i++) {
-        const size_t size = random() % 8096;
+        const size_t size = randomnumber() % 1024 * 64;
         blocks[i] = malloc(size);
         memoryset(blocks[i], 0xAA, size);
     }

@@ -83,8 +83,7 @@ arena_remove_heap(Arena* arena, Heap* heap) {
 }
 
 ArenaType
-arena_select(const u64 requested_size) {
-    const u64 size = chunk_calculate_size(requested_size, false);
+arena_select(const u64 size) {
     if (size <= chunk_max_tiny_size())
         return ArenaType_Tiny;
     else

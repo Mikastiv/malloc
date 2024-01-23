@@ -1,5 +1,3 @@
-#include "memory.h"
-
 #include "arena.h"
 #include "chunk.h"
 #include "freelist.h"
@@ -7,12 +5,13 @@
 #include "utils.h"
 
 #include <pthread.h>
-#include <stdbool.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 
 typedef struct Context {
     Arena arenas[2];
     MappedChunkList mapped_chunks;
+    u64 total_memory;
 } Context;
 
 static Context ctx;
@@ -31,6 +30,15 @@ lock_mutex(void) {
 static int
 unlock_mutex(void) {
     return pthread_mutex_unlock(&mtx);
+}
+
+static bool
+enough_memory(const u64 requested_size) {
+    struct rlimit rlp;
+
+    if (getrlimit(RLIMIT_AS, &rlp) == -1) return false;
+
+    return ctx.total_memory + requested_size < rlp.rlim_cur;
 }
 
 static void
@@ -56,7 +64,7 @@ remove_mapped_chunk(MappedChunk* mapped) {
 
 static void*
 get_block(Arena* arena, const u64 requested_size) {
-    const u64 size = chunk_calculate_size(requested_size, false);
+    const u64 size = chunk_unmapped_size(requested_size);
 
     Chunk* chunk = 0;
     Heap* heap = arena->head;
@@ -67,7 +75,9 @@ get_block(Arena* arena, const u64 requested_size) {
     }
 
     if (!chunk) {
+        if (!enough_memory(heap_size(arena->type))) return 0;
         if (!arena_grow(arena)) return 0;
+        ctx.total_memory += arena->head->size;
 
         heap = arena->head;
         while (heap) {
@@ -92,11 +102,14 @@ get_block(Arena* arena, const u64 requested_size) {
 
 void*
 inner_malloc(const u64 size) {
-    const u64 mapped_size = chunk_calculate_size(size, true);
+    const u64 mapped_size = chunk_mapped_size(size);
 
     if (mapped_size >= chunk_min_large_size()) {
+        if (!enough_memory(mapped_size)) return 0;
         MappedChunk* mapped = mmap(0, mapped_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
         if (mmap_failed(mapped)) return 0;
+
+        ctx.total_memory += mapped_size;
 
         mapped->next = ctx.mapped_chunks.head;
         ctx.mapped_chunks.head = mapped;
@@ -109,7 +122,7 @@ inner_malloc(const u64 size) {
         return chunk_to_mem(chunk);
     }
 
-    const ArenaType idx = arena_select(size);
+    const ArenaType idx = arena_select(chunk_unmapped_size(size));
     return get_block(&ctx.arenas[idx], size);
 }
 
@@ -133,6 +146,7 @@ free_chunk(Arena* arena, Chunk* chunk) {
 
     if (chunk->size == heap->size - heap_metadata_size()) {
         arena_remove_heap(arena, heap);
+        ctx.total_memory -= heap->size;
         munmap(heap, heap->size);
     } else {
         freelist_prepend(&heap->freelist, chunk);
@@ -145,6 +159,7 @@ inner_free(void* ptr) {
     if (chunk_is_mapped(chunk)) {
         MappedChunk* mapped = chunk_to_mapped(chunk);
         remove_mapped_chunk(mapped);
+        ctx.total_memory -= chunk->size;
         munmap(mapped, chunk->size);
         return;
     }
@@ -161,31 +176,31 @@ inner_realloc(void* ptr, const u64 size) {
         return ptr;
     }
 
-    const bool new_size_not_mapped = chunk_calculate_size(size, true) < chunk_min_large_size();
-    if (!chunk_is_mapped(chunk) && new_size_not_mapped) {
-        const u64 new_size = chunk_calculate_size(size, false);
-        const bool change_category = chunk->size <= chunk_max_tiny_size() && new_size > chunk_max_tiny_size();
-        if (!change_category) {
-            Chunk* next = chunk_next(chunk);
-            if (next && !chunk_is_allocated(next) && chunk->size + next->size >= new_size) {
-                Heap* heap = arena_find_heap(&ctx.arenas[ArenaType_Tiny], next);
-                if (!heap) {
-                    heap = arena_find_heap(&ctx.arenas[ArenaType_Small], next);
-                }
+    // const bool new_size_not_mapped = chunk_mapped_size(size) < chunk_min_large_size();
+    // if (!chunk_is_mapped(chunk) && new_size_not_mapped) {
+    //     const u64 new_size = chunk_unmapped_size(size);
+    //     const bool change_category = chunk->size <= chunk_max_tiny_size() && new_size > chunk_max_tiny_size();
+    //     if (!change_category) {
+    //         Chunk* next = chunk_next(chunk);
+    //         if (next && !chunk_is_allocated(next) && chunk->size + next->size >= new_size) {
+    //             Heap* heap = arena_find_heap(&ctx.arenas[ArenaType_Tiny], next);
+    //             if (!heap) {
+    //                 heap = arena_find_heap(&ctx.arenas[ArenaType_Small], next);
+    //             }
 
-                freelist_remove(&heap->freelist, next);
+    //             freelist_remove(&heap->freelist, next);
 
-                chunk = chunk_coalesce(chunk, next);
-                if (chunk->size - size >= chunk_min_size()) {
-                    Chunk* other = chunk_split(chunk, size);
-                    freelist_prepend(&heap->freelist, other);
-                }
+    //             chunk = chunk_coalesce(chunk, next);
+    //             if (chunk->size - size >= chunk_min_size()) {
+    //                 Chunk* other = chunk_split(chunk, size);
+    //                 freelist_prepend(&heap->freelist, other);
+    //             }
 
-                chunk->user_size = size;
-                return chunk_to_mem(chunk);
-            }
-        }
-    }
+    //             chunk->user_size = size;
+    //             return chunk_to_mem(chunk);
+    //         }
+    //     }
+    // }
 
     void* block = inner_malloc(size);
     memcopy(block, ptr, chunk->user_size);

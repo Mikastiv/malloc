@@ -74,10 +74,17 @@ chunk_prev(Chunk* chunk) {
 }
 
 u64
-chunk_calculate_size(const u64 requested_size, const bool is_mapped) {
+chunk_unmapped_size(const u64 requested_size) {
     const u64 user_block_size = align_up(requested_size, chunk_alignment());
-    const u64 chunk_size = align_up(chunk_metadata_size(is_mapped), chunk_alignment());
+    const u64 chunk_size = align_up(chunk_metadata_size(false), chunk_alignment());
     return user_block_size + chunk_size;
+}
+
+u64
+chunk_mapped_size(const u64 requested_size) {
+    const u64 user_block_size = align_up(requested_size, chunk_alignment());
+    const u64 chunk_size = align_up(chunk_metadata_size(true), chunk_alignment());
+    return align_up(user_block_size + chunk_size, getpagesize());
 }
 
 u64

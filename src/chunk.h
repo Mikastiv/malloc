@@ -44,7 +44,10 @@ Chunk*
 chunk_prev(Chunk* chunk);
 
 u64
-chunk_calculate_size(const u64 requested_size, const bool is_mapped);
+chunk_unmapped_size(const u64 requested_size);
+
+u64
+chunk_mapped_size(const u64 requested_size);
 
 u64
 chunk_usable_size(Chunk* chunk);
