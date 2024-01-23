@@ -11,7 +11,7 @@ memoryset(void* dst, const char v, const size_t size) {
 }
 
 void
-memcopy(void* dst, const void* src, const size_t size) {
+ft_memcpy(void* dst, const void* src, const size_t size) {
     char* dst_ptr = dst;
     const char* src_ptr = src;
     for (size_t i = 0; i < size; ++i) {
@@ -73,7 +73,7 @@ int main() {
     show_alloc_mem();
 
     char* string = malloc(60);
-    memcopy(string, "Hello World\n", 13);
+    ft_memcpy(string, "Hello World\n", 13);
 
     write(1, string, 13);
     string = realloc(string, 90);

@@ -11,16 +11,16 @@ u64
 align_up(const u64 addr, const u64 alignment);
 
 void
-memcopy(void* dst, const void* src, const u64 size);
+ft_memcpy(void* dst, const void* src, const u64 size);
 
 bool
 mmap_failed(void* ptr);
 
 u64
-str_len(const char* str);
+ft_strlen(const char* str);
 
 void
-putstr(const char* str);
+ft_putstr(const char* str);
 
 void
-putnbr(const u64 nbr, const u64 base);
+ft_putnbr(const u64 nbr, const u64 base);

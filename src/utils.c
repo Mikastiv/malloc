@@ -14,7 +14,7 @@ align_up(const u64 addr, const u64 alignment) {
 }
 
 void
-memcopy(void* dst, const void* src, const u64 size) {
+ft_memcpy(void* dst, const void* src, const u64 size) {
     char* dst_ptr = dst;
     const char* src_ptr = src;
     for (size_t i = 0; i < size; ++i) {
@@ -28,22 +28,22 @@ mmap_failed(void* ptr) {
 }
 
 u64
-str_len(const char* str) {
+ft_strlen(const char* str) {
     u64 len = 0;
     while (str[len]) ++len;
     return len;
 }
 
 void
-putstr(const char* str) {
-    write(STDOUT_FILENO, str, str_len(str));
+ft_putstr(const char* str) {
+    write(STDOUT_FILENO, str, ft_strlen(str));
 }
 
 void
-putnbr(const u64 nbr, const u64 base) {
+ft_putnbr(const u64 nbr, const u64 base) {
     const char* hex = "0123456789ABCDEF";
     if (nbr >= base) {
-        putnbr(nbr / base, base);
+        ft_putnbr(nbr / base, base);
     }
     const char n = hex[nbr % base];
     write(STDOUT_FILENO, &n, 1);

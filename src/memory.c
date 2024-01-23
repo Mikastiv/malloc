@@ -203,7 +203,7 @@ inner_realloc(void* ptr, const u64 size) {
     // }
 
     void* block = inner_malloc(size);
-    memcopy(block, ptr, chunk->user_size);
+    ft_memcpy(block, ptr, chunk->user_size);
     inner_free(ptr);
 
     return block;
@@ -246,23 +246,23 @@ static void
 print_arena_allocs(const char* name, Arena* arena, u64* total) {
     Heap* heap = arena->head;
     while (heap) {
-        putstr(name);
-        putstr(" : 0x");
-        putnbr((u64)heap_to_chunk(heap), 16);
-        putstr("\n");
+        ft_putstr(name);
+        ft_putstr(" : 0x");
+        ft_putnbr((u64)heap_to_chunk(heap), 16);
+        ft_putstr("\n");
         Chunk* chunk = heap_to_chunk(heap);
         while (chunk) {
             const u64 addr = (u64)chunk_to_mem(chunk);
             const unsigned long size = chunk->user_size;
             if (chunk_is_allocated(chunk)) {
                 *total += size;
-                putstr("0x");
-                putnbr(addr, 16);
-                putstr(" - 0x");
-                putnbr(addr + chunk->user_size, 16);
-                putstr(" : ");
-                putnbr(chunk->user_size, 10);
-                putstr(" bytes\n");
+                ft_putstr("0x");
+                ft_putnbr(addr, 16);
+                ft_putstr(" - 0x");
+                ft_putnbr(addr + chunk->user_size, 16);
+                ft_putstr(" : ");
+                ft_putnbr(chunk->user_size, 10);
+                ft_putstr(" bytes\n");
             }
             chunk = chunk_next(chunk);
         }
@@ -282,20 +282,20 @@ show_alloc_mem(void) {
         Chunk* chunk = chunk_from_mapped(ptr);
         u64 addr = (u64)chunk_to_mem(chunk);
         total += chunk->user_size;
-        putstr("LARGE : 0x");
-        putnbr((u64)ptr, 16);
-        putstr("\n0x");
-        putnbr((u64)addr, 16);
-        putstr(" - 0x");
-        putnbr((u64)addr + chunk->user_size, 16);
-        putstr(" : ");
-        putnbr(chunk->user_size, 10);
-        putstr(" bytes\n");
+        ft_putstr("LARGE : 0x");
+        ft_putnbr((u64)ptr, 16);
+        ft_putstr("\n0x");
+        ft_putnbr((u64)addr, 16);
+        ft_putstr(" - 0x");
+        ft_putnbr((u64)addr + chunk->user_size, 16);
+        ft_putstr(" : ");
+        ft_putnbr(chunk->user_size, 10);
+        ft_putstr(" bytes\n");
         ptr = ptr->next;
     }
 
-    putstr("Total : ");
-    putnbr(total, 10);
-    putstr(" bytes\n");
+    ft_putstr("Total : ");
+    ft_putnbr(total, 10);
+    ft_putstr(" bytes\n");
     unlock_mutex();
 }
