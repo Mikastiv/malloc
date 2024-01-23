@@ -1,10 +1,6 @@
 #pragma once
 
-#include "chunk.h"
-
-typedef struct Freelist {
-    Chunk* head;
-} Freelist;
+#include "types.h"
 
 void
 freelist_prepend(Freelist* list, Chunk* chunk);

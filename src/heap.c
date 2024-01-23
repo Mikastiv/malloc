@@ -6,8 +6,16 @@
 #include <unistd.h>
 
 u64
-heap_size(void) {
-    return getpagesize() * 8;
+heap_size(const ArenaType type) {
+    u64 size;
+
+    if (type == ArenaType_Tiny) {
+        size = align_up(100 * chunk_max_tiny_size() + heap_metadata_size(), getpagesize());
+    } else {
+        size = align_up(100 * chunk_min_large_size() + heap_metadata_size(), getpagesize());
+    }
+
+    return size;
 }
 
 u64
@@ -17,7 +25,7 @@ heap_metadata_size(void) {
 
 bool
 ptr_in_heap(Heap* heap, void* ptr) {
-    return (u64)heap < (u64)ptr && (u64)heap + heap_size() >= (u64)ptr;
+    return (u64)heap < (u64)ptr && (u64)heap + heap->size >= (u64)ptr;
 }
 
 Chunk*

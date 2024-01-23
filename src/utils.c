@@ -1,19 +1,14 @@
 #include "utils.h"
 
-#include <assert.h>
 #include <unistd.h>
 
 u64
 align_down(const u64 addr, const u64 alignment) {
-    assert(alignment != 0);
-    assert((alignment & (alignment - 1)) == 0);
     return addr & ~(alignment - 1);
 }
 
 u64
 align_up(const u64 addr, const u64 alignment) {
-    assert(alignment != 0);
-    assert((alignment & (alignment - 1)) == 0);
     const u64 mask = alignment - 1;
     return (addr + mask) & ~mask;
 }

@@ -4,30 +4,6 @@
 
 #include <stdbool.h>
 
-typedef enum ChunkFlag {
-    ChunkFlag_Allocated = 1 << 0,
-    ChunkFlag_Mapped = 1 << 1,
-    ChunkFlag_First = 1 << 2,
-    ChunkFlag_Last = 1 << 3,
-} ChunkFlag;
-
-typedef struct Chunk {
-    u64 prev_size;
-    u64 flags : 4;
-    u64 size  : 60;
-    u64 user_size;
-    struct Chunk* next; // only use if free
-    struct Chunk* prev; // only use if free
-} Chunk;
-
-typedef struct MappedChunk {
-    struct MappedChunk* next;
-} MappedChunk;
-
-typedef struct MappedChunkList {
-    MappedChunk* head;
-} MappedChunkList;
-
 u64
 chunk_alignment(void);
 

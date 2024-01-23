@@ -1,5 +1,7 @@
 #include "arena.h"
 
+#include "chunk.h"
+#include "heap.h"
 #include "utils.h"
 
 #include <sys/mman.h>
@@ -19,7 +21,7 @@ prepend_heap(Arena* arena, Heap* heap) {
 
 bool
 arena_grow(Arena* arena) {
-    const u64 size = heap_size();
+    const u64 size = heap_size(arena->type);
     Heap* heap = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if (mmap_failed(heap)) return false;
 
@@ -29,6 +31,7 @@ arena_grow(Arena* arena) {
     chunk->size = size - heap_metadata_size();
     chunk->flags = ChunkFlag_First | ChunkFlag_Last;
 
+    heap->size = size;
     heap->freelist.head = chunk;
     chunk->next = 0;
     chunk->prev = 0;
@@ -77,4 +80,13 @@ arena_remove_heap(Arena* arena, Heap* heap) {
             ptr = ptr->next;
         }
     }
+}
+
+ArenaType
+arena_select(const u64 requested_size) {
+    const u64 size = chunk_calculate_size(requested_size, false);
+    if (size <= chunk_max_tiny_size())
+        return ArenaType_Tiny;
+    else
+        return ArenaType_Small;
 }

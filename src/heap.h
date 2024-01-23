@@ -1,16 +1,11 @@
 #pragma once
 
-#include "freelist.h"
+#include "types.h"
 
 #include <stdbool.h>
 
-typedef struct Heap {
-    Freelist freelist;
-    struct Heap* next;
-} Heap;
-
 u64
-heap_size(void);
+heap_size(const ArenaType type);
 
 u64
 heap_metadata_size(void);

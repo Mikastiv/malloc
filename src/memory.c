@@ -1,6 +1,9 @@
 #include "memory.h"
 
 #include "arena.h"
+#include "chunk.h"
+#include "freelist.h"
+#include "heap.h"
 #include "utils.h"
 
 #include <pthread.h>
@@ -8,8 +11,7 @@
 #include <sys/mman.h>
 
 typedef struct Context {
-    Arena arena_tiny;
-    Arena arena_small;
+    Arena arenas[2];
     MappedChunkList mapped_chunks;
 } Context;
 
@@ -90,10 +92,7 @@ get_block(Arena* arena, const u64 requested_size) {
 
 void*
 inner_malloc(const u64 size) {
-    void* block = 0;
-
     const u64 mapped_size = chunk_calculate_size(size, true);
-    const u64 unmapped_size = chunk_calculate_size(size, false);
 
     if (mapped_size >= chunk_min_large_size()) {
         MappedChunk* mapped = mmap(0, mapped_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -107,14 +106,11 @@ inner_malloc(const u64 size) {
         chunk->size = mapped_size;
         chunk->user_size = size;
 
-        block = chunk_to_mem(chunk);
-    } else if (unmapped_size <= chunk_max_tiny_size()) {
-        block = get_block(&ctx.arena_tiny, size);
-    } else {
-        block = get_block(&ctx.arena_small, size);
+        return chunk_to_mem(chunk);
     }
 
-    return block;
+    const ArenaType idx = arena_select(size);
+    return get_block(&ctx.arenas[idx], size);
 }
 
 static void
@@ -135,9 +131,9 @@ free_chunk(Arena* arena, Chunk* chunk) {
         chunk = chunk_coalesce(chunk, next);
     }
 
-    if (chunk->size == heap_size() - heap_metadata_size()) {
+    if (chunk->size == heap->size - heap_metadata_size()) {
         arena_remove_heap(arena, heap);
-        munmap(heap, heap_size());
+        munmap(heap, heap->size);
     } else {
         freelist_prepend(&heap->freelist, chunk);
     }
@@ -150,11 +146,11 @@ inner_free(void* ptr) {
         MappedChunk* mapped = chunk_to_mapped(chunk);
         remove_mapped_chunk(mapped);
         munmap(mapped, chunk->size);
-    } else if (chunk->size <= chunk_max_tiny_size()) {
-        free_chunk(&ctx.arena_tiny, chunk);
-    } else {
-        free_chunk(&ctx.arena_small, chunk);
+        return;
     }
+
+    const ArenaType idx = arena_select(chunk->size);
+    free_chunk(&ctx.arenas[idx], chunk);
 }
 
 void*
@@ -172,9 +168,9 @@ inner_realloc(void* ptr, const u64 size) {
         if (!change_category) {
             Chunk* next = chunk_next(chunk);
             if (next && !chunk_is_allocated(next) && chunk->size + next->size >= new_size) {
-                Heap* heap = arena_find_heap(&ctx.arena_tiny, next);
+                Heap* heap = arena_find_heap(&ctx.arenas[ArenaType_Tiny], next);
                 if (!heap) {
-                    heap = arena_find_heap(&ctx.arena_small, next);
+                    heap = arena_find_heap(&ctx.arenas[ArenaType_Small], next);
                 }
 
                 freelist_remove(&heap->freelist, next);
@@ -263,8 +259,8 @@ void
 show_alloc_mem(void) {
     lock_mutex();
     u64 total = 0;
-    print_arena_allocs("TINY", &ctx.arena_tiny, &total);
-    print_arena_allocs("SMALL", &ctx.arena_small, &total);
+    print_arena_allocs("TINY", &ctx.arenas[ArenaType_Tiny], &total);
+    print_arena_allocs("SMALL", &ctx.arenas[ArenaType_Small], &total);
 
     MappedChunk* ptr = ctx.mapped_chunks.head;
     while (ptr) {

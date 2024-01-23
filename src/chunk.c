@@ -21,7 +21,7 @@ chunk_max_tiny_size(void) {
 
 u64
 chunk_min_large_size(void) {
-    return align_up(4096, chunk_alignment());
+    return align_up(4096 * 4, chunk_alignment());
 }
 
 u64

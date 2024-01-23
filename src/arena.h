@@ -1,13 +1,8 @@
 #pragma once
 
-#include "heap.h"
+#include "types.h"
 
 #include <stdbool.h>
-
-typedef struct Arena {
-    u64 len;
-    Heap* head;
-} Arena;
 
 bool
 arena_grow(Arena* arena);
@@ -20,3 +15,6 @@ arena_find_chunk(Arena* arena, const u64 size);
 
 void
 arena_remove_heap(Arena* arena, Heap* heap);
+
+ArenaType
+arena_select(const u64 requested_size);
