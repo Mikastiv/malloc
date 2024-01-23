@@ -82,7 +82,7 @@ int main() {
     char* string = malloc(60);
     ft_strcpy(string, "Hello World\n");
 
-    write(1, string, 13);
+    write(1, string, ft_strlen("Hello World\n"));
     string = realloc(string, 90);
-    write(1, string, 13);
+    write(1, string, ft_strlen("Hello World\n"));
 }
