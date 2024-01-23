@@ -8,7 +8,6 @@
 #include <sys/mman.h>
 
 typedef struct Context {
-    bool is_init;
     Arena arena_tiny;
     Arena arena_small;
     MappedChunkList mapped_chunks;
@@ -19,29 +18,17 @@ static pthread_mutex_t mtx;
 
 static int
 lock_mutex(void) {
+    static bool is_init = false;
+    if (!is_init) {
+        pthread_mutex_init(&mtx, 0);
+        is_init = true;
+    }
     return pthread_mutex_lock(&mtx);
 }
 
 static int
 unlock_mutex(void) {
     return pthread_mutex_unlock(&mtx);
-}
-
-// static bool
-// init(void) {
-//     if (ctx.is_init) return true;
-
-//     if (pthread_mutex_init(&mtx, 0) != 0) return false;
-
-//     ctx.is_init = true;
-
-//     return true;
-// }
-
-static __attribute__((destructor)) void
-deinit(void) {
-    if (!ctx.is_init) return;
-    pthread_mutex_destroy(&mtx);
 }
 
 static void
@@ -211,18 +198,14 @@ inner_realloc(void* ptr, const u64 size) {
     return block;
 }
 
-// void*
-// malloc(size_t size) {
-//     if (!ctx.is_init) {
-//         if (!init()) return 0;
-//     }
+void*
+malloc(size_t size) {
+    lock_mutex();
+    void* block = inner_malloc(size);
+    unlock_mutex();
 
-//     lock_mutex();
-//     void* block = inner_malloc(size);
-//     unlock_mutex();
-
-//     return block;
-// }
+    return block;
+}
 
 void
 free(void* ptr) {
@@ -288,7 +271,7 @@ show_alloc_mem(void) {
         Chunk* chunk = chunk_from_mapped(ptr);
         u64 addr = (u64)chunk_to_mem(chunk);
         total += chunk->user_size;
-        putstr("LARGE : ");
+        putstr("LARGE : 0x");
         putnbr((u64)ptr, 16);
         putstr("\n0x");
         putnbr((u64)addr, 16);
