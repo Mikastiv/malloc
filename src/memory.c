@@ -144,7 +144,7 @@ free_chunk(Arena* arena, Chunk* chunk) {
         chunk = chunk_coalesce(chunk, next);
     }
 
-    if (chunk->size == heap->size - heap_metadata_size()) {
+    if (chunk->size == heap->size - heap_metadata_size() && arena->len > 1) {
         arena_remove_heap(arena, heap);
         ctx.total_memory -= heap->size;
         munmap(heap, heap->size);
