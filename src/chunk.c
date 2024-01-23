@@ -133,5 +133,5 @@ chunk_is_mapped(Chunk* chunk) {
 
 bool
 chunk_is_allocated(Chunk* chunk) {
-    return chunk->flags & ChunkFlag_Allocated;
+    return chunk_is_mapped(chunk) ? true : chunk->flags & ChunkFlag_Allocated;
 }
