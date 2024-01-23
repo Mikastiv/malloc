@@ -10,12 +10,18 @@ memoryset(void* dst, const char v, const size_t size) {
     }
 }
 
+size_t
+ft_strlen(const char* str) {
+    size_t len = 0;
+    while (str[len]) ++len;
+    return len;
+}
+
 void
-ft_memcpy(void* dst, const void* src, const size_t size) {
-    char* dst_ptr = dst;
-    const char* src_ptr = src;
-    for (size_t i = 0; i < size; ++i) {
-        dst_ptr[i] = src_ptr[i];
+ft_strcpy(char* dst, const char* src) {
+    const size_t len = ft_strlen(src);
+    for (size_t i = 0; i < len; ++i) {
+        dst[i] = src[i];
     }
 }
 
@@ -73,7 +79,7 @@ int main() {
     show_alloc_mem();
 
     char* string = malloc(60);
-    ft_memcpy(string, "Hello World\n", 13);
+    ft_strcpy(string, "Hello World\n");
 
     write(1, string, 13);
     string = realloc(string, 90);

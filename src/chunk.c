@@ -76,15 +76,15 @@ chunk_prev(Chunk* chunk) {
 u64
 chunk_unmapped_size(const u64 requested_size) {
     const u64 user_block_size = align_up(requested_size, chunk_alignment());
-    const u64 chunk_size = align_up(chunk_metadata_size(false), chunk_alignment());
-    return user_block_size + chunk_size;
+    const u64 metadata_size = align_up(chunk_metadata_size(false), chunk_alignment());
+    return user_block_size + metadata_size;
 }
 
 u64
 chunk_mapped_size(const u64 requested_size) {
     const u64 user_block_size = align_up(requested_size, chunk_alignment());
-    const u64 chunk_size = align_up(chunk_metadata_size(true), chunk_alignment());
-    return align_up(user_block_size + chunk_size, getpagesize());
+    const u64 metadata_size = align_up(chunk_metadata_size(true), chunk_alignment());
+    return align_up(user_block_size + metadata_size, getpagesize());
 }
 
 u64
@@ -109,7 +109,6 @@ chunk_coalesce(Chunk* front, Chunk* back) {
 Chunk*
 chunk_split(Chunk* chunk, const u64 size) {
     const bool is_last = chunk->flags & ChunkFlag_Last;
-
     const u64 old_size = chunk->size;
     chunk->size = size;
     chunk->flags &= ~ChunkFlag_Last;
