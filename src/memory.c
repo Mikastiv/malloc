@@ -233,10 +233,11 @@ malloc(size_t size) {
     if (size == 0) size = 1;
     lock_mutex();
     void* block = inner_malloc(size);
-    unlock_mutex();
-
+#ifdef MALLOC_DEBUG
     check_all_mem(&ctx.arenas[0]);
     check_all_mem(&ctx.arenas[1]);
+#endif
+    unlock_mutex();
 
     return block;
 }
@@ -247,10 +248,11 @@ free(void* ptr) {
 
     lock_mutex();
     inner_free(ptr);
-    unlock_mutex();
-
+#ifdef MALLOC_DEBUG
     check_all_mem(&ctx.arenas[0]);
     check_all_mem(&ctx.arenas[1]);
+#endif
+    unlock_mutex();
 }
 
 void*
@@ -263,10 +265,11 @@ realloc(void* ptr, size_t size) {
 
     lock_mutex();
     void* block = inner_realloc(ptr, size);
-    unlock_mutex();
-
+#ifdef MALLOC_DEBUG
     check_all_mem(&ctx.arenas[0]);
     check_all_mem(&ctx.arenas[1]);
+#endif
+    unlock_mutex();
 
     return block;
 }
