@@ -112,7 +112,6 @@ get_block(Arena* arena, const u64 requested_size) {
     }
 
     chunk->flags |= ChunkFlag_Allocated;
-    chunk->user_size = requested_size;
 
     return chunk_to_mem(chunk);
 }
@@ -134,7 +133,6 @@ inner_malloc(const u64 size) {
         Chunk* chunk = chunk_from_mapped(mapped);
         chunk->flags = ChunkFlag_Mapped;
         chunk->size = mapped_size;
-        chunk->user_size = size;
 
         return chunk_to_mem(chunk);
     }
@@ -199,7 +197,6 @@ inner_realloc(void* ptr, const u64 size) {
     if (!chunk_is_mapped(chunk) && !memory_is_valid(ptr)) return 0;
 
     if (chunk_usable_size(chunk) >= size) {
-        chunk->user_size = size;
         return ptr;
     }
 
@@ -231,7 +228,7 @@ inner_realloc(void* ptr, const u64 size) {
     // }
 
     void* block = inner_malloc(size);
-    ft_memcpy(block, ptr, chunk->user_size);
+    ft_memcpy(block, ptr, chunk_usable_size(chunk));
     inner_free(ptr);
 
     return block;
@@ -291,15 +288,15 @@ print_arena_allocs(const char* name, Arena* arena, u64* total) {
         Chunk* chunk = heap_to_chunk(heap);
         while (chunk) {
             const u64 addr = (u64)chunk_to_mem(chunk);
-            const unsigned long size = chunk->user_size;
+            const unsigned long size = chunk->size;
             if (chunk_is_allocated(chunk)) {
                 *total += size;
                 ft_putstr("0x");
                 ft_putnbr(addr, 16);
                 ft_putstr(" - 0x");
-                ft_putnbr(addr + chunk->user_size, 16);
+                ft_putnbr(addr + chunk->size, 16);
                 ft_putstr(" : ");
-                ft_putnbr(chunk->user_size, 10);
+                ft_putnbr(chunk->size, 10);
                 ft_putstr(" bytes\n");
             }
             chunk = chunk_next(chunk);
@@ -319,15 +316,15 @@ show_alloc_mem(void) {
     while (ptr) {
         Chunk* chunk = chunk_from_mapped(ptr);
         u64 addr = (u64)chunk_to_mem(chunk);
-        total += chunk->user_size;
+        total += chunk->size;
         ft_putstr("LARGE : 0x");
         ft_putnbr((u64)ptr, 16);
         ft_putstr("\n0x");
         ft_putnbr((u64)addr, 16);
         ft_putstr(" - 0x");
-        ft_putnbr((u64)addr + chunk->user_size, 16);
+        ft_putnbr((u64)addr + chunk->size, 16);
         ft_putstr(" : ");
-        ft_putnbr(chunk->user_size, 10);
+        ft_putnbr(chunk->size, 10);
         ft_putstr(" bytes\n");
         ptr = ptr->next;
     }
