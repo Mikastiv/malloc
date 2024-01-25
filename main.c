@@ -62,6 +62,15 @@ int main() {
     for (size_t i = 128; i < 256; i++) {
         free(blocks[i]);
     }
+
+    char* string = malloc(60);
+    ft_strcpy(string, "Hello World\n");
+
+    write(1, string, ft_strlen("Hello World\n"));
+    string = realloc(string, 90);
+    write(1, string, ft_strlen("Hello World\n"));
+    free(string);
+
     for (size_t i = 0; i < 128; i++) {
         const size_t size = randomnumber() % 1024 * 64;
         blocks[i] = realloc(blocks[i], size);
@@ -79,10 +88,5 @@ int main() {
     free(blocks);
     show_alloc_mem();
 
-    char* string = malloc(60);
-    ft_strcpy(string, "Hello World\n");
 
-    write(1, string, ft_strlen("Hello World\n"));
-    string = realloc(string, 90);
-    write(1, string, ft_strlen("Hello World\n"));
 }

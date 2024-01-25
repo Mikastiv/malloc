@@ -17,4 +17,4 @@ void
 arena_remove_heap(Arena* arena, Heap* heap);
 
 ArenaType
-arena_select(const u64 requested_size);
+arena_select(const u64 size);

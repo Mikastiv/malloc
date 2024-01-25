@@ -67,7 +67,7 @@ remove_mapped_chunk(MappedChunk* mapped) {
 }
 
 static bool
-memory_is_valid(void* ptr) {
+memory_is_from_arena(void* ptr) {
     Heap* heap = arena_find_heap(&ctx.arenas[ArenaType_Tiny], ptr);
     if (!heap) heap = arena_find_heap(&ctx.arenas[ArenaType_Small], ptr);
 
@@ -183,7 +183,7 @@ inner_free(void* ptr) {
         return;
     }
 
-    if (!memory_is_valid(ptr)) return;
+    if (!memory_is_from_arena(ptr)) return;
 
     const ArenaType idx = arena_select(chunk->size);
     free_chunk(&ctx.arenas[idx], chunk);
@@ -194,38 +194,32 @@ inner_realloc(void* ptr, const u64 size) {
     Chunk* chunk = chunk_from_mem(ptr);
     if (!memory_is_aligned(chunk)) return 0;
     if (!chunk_is_allocated(chunk)) return 0;
-    if (!chunk_is_mapped(chunk) && !memory_is_valid(ptr)) return 0;
+    if (!chunk_is_mapped(chunk) && !memory_is_from_arena(ptr)) return 0;
 
     if (chunk_usable_size(chunk) >= size) {
         return ptr;
     }
 
-    // TODO: check for free block after
-    // const bool new_size_not_mapped = chunk_mapped_size(size) < chunk_min_large_size();
-    // if (!chunk_is_mapped(chunk) && new_size_not_mapped) {
-    //     const u64 new_size = chunk_unmapped_size(size);
-    //     const bool change_category = chunk->size <= chunk_max_tiny_size() && new_size > chunk_max_tiny_size();
-    //     if (!change_category) {
-    //         Chunk* next = chunk_next(chunk);
-    //         if (next && !chunk_is_allocated(next) && chunk->size + next->size >= new_size) {
-    //             Heap* heap = arena_find_heap(&ctx.arenas[ArenaType_Tiny], next);
-    //             if (!heap) {
-    //                 heap = arena_find_heap(&ctx.arenas[ArenaType_Small], next);
-    //             }
+    const bool new_size_mapped = chunk_mapped_size(size) >= chunk_min_large_size();
+    const bool will_change_arena = arena_select(chunk->size) != arena_select(chunk_unmapped_size(size));
+    if (!(chunk_is_mapped(chunk) || new_size_mapped || will_change_arena)) {
+        const u64 new_size = chunk_unmapped_size(size);
+        Chunk* next = chunk_next(chunk);
+        if (next && !chunk_is_allocated(next) && new_size <= chunk->size + next->size) {
+            const ArenaType arena = arena_select(chunk->size);
+            Heap* heap = arena_find_heap(&ctx.arenas[arena], chunk);
 
-    //             freelist_remove(&heap->freelist, next);
+            freelist_remove(&heap->freelist, next);
 
-    //             chunk = chunk_coalesce(chunk, next);
-    //             if (chunk->size - size >= chunk_min_size()) {
-    //                 Chunk* other = chunk_split(chunk, size);
-    //                 freelist_prepend(&heap->freelist, other);
-    //             }
+            chunk = chunk_coalesce(chunk, next);
+            if (chunk->size - new_size >= chunk_min_size()) {
+                Chunk* other = chunk_split(chunk, new_size);
+                freelist_prepend(&heap->freelist, other);
+            }
 
-    //             chunk->user_size = size;
-    //             return chunk_to_mem(chunk);
-    //         }
-    //     }
-    // }
+            return chunk_to_mem(chunk);
+        }
+    }
 
     void* block = inner_malloc(size);
     ft_memcpy(block, ptr, chunk_usable_size(chunk));
