@@ -47,7 +47,7 @@ typedef struct Heap {
 
 typedef enum ArenaType {
     ArenaType_Tiny = 0,
-    ArenaType_Small,
+    ArenaType_Small = 1,
 } ArenaType;
 
 typedef struct Arena {

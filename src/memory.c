@@ -20,19 +20,15 @@ typedef struct Context {
 static Context ctx;
 static pthread_mutex_t mtx;
 
-static int
-lock_mutex(void) {
+static void
+init(void) {
     static bool is_init = false;
     if (!is_init) {
-        pthread_mutex_init(&mtx, 0);
         is_init = true;
+        ctx.arenas[ArenaType_Tiny].type = ArenaType_Tiny;
+        ctx.arenas[ArenaType_Small].type = ArenaType_Small;
+        pthread_mutex_init(&mtx, 0);
     }
-    return pthread_mutex_lock(&mtx);
-}
-
-static int
-unlock_mutex(void) {
-    return pthread_mutex_unlock(&mtx);
 }
 
 static bool
@@ -230,14 +226,15 @@ inner_realloc(void* ptr, const u64 size) {
 
 void*
 malloc(size_t size) {
+    init();
     if (size == 0) size = 1;
-    lock_mutex();
+    pthread_mutex_lock(&mtx);
     void* block = inner_malloc(size);
 #ifdef MALLOC_DEBUG
     check_all_mem(&ctx.arenas[0]);
     check_all_mem(&ctx.arenas[1]);
 #endif
-    unlock_mutex();
+    pthread_mutex_unlock(&mtx);
 
     return block;
 }
@@ -245,31 +242,33 @@ malloc(size_t size) {
 void
 free(void* ptr) {
     if (!ptr) return;
+    init();
 
-    lock_mutex();
+    pthread_mutex_lock(&mtx);
     inner_free(ptr);
 #ifdef MALLOC_DEBUG
     check_all_mem(&ctx.arenas[0]);
     check_all_mem(&ctx.arenas[1]);
 #endif
-    unlock_mutex();
+    pthread_mutex_unlock(&mtx);
 }
 
 void*
 realloc(void* ptr, size_t size) {
+    init();
     if (!ptr) return malloc(size);
     if (!size) {
         free(ptr);
         return 0;
     }
 
-    lock_mutex();
+    pthread_mutex_lock(&mtx);
     void* block = inner_realloc(ptr, size);
 #ifdef MALLOC_DEBUG
     check_all_mem(&ctx.arenas[0]);
     check_all_mem(&ctx.arenas[1]);
 #endif
-    unlock_mutex();
+    pthread_mutex_unlock(&mtx);
 
     return block;
 }
@@ -304,7 +303,7 @@ print_arena_allocs(const char* name, Arena* arena, u64* total) {
 
 void
 show_alloc_mem(void) {
-    lock_mutex();
+    pthread_mutex_lock(&mtx);
     u64 total = 0;
     print_arena_allocs("TINY", &ctx.arenas[ArenaType_Tiny], &total);
     print_arena_allocs("SMALL", &ctx.arenas[ArenaType_Small], &total);
@@ -329,5 +328,5 @@ show_alloc_mem(void) {
     ft_putstr("Total : ");
     ft_putnbr(total, 10);
     ft_putstr(" bytes\n");
-    unlock_mutex();
+    pthread_mutex_unlock(&mtx);
 }

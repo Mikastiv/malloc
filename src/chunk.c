@@ -9,6 +9,11 @@ chunk_alignment(void) {
     return 16;
 }
 
+static u64
+chunk_header_size(void) {
+    return sizeof(u64) * 2;
+}
+
 u64
 chunk_min_size(void) {
     return align_up(sizeof(Chunk), chunk_alignment());
@@ -31,7 +36,7 @@ mapped_chunk_metadata_size(void) {
 
 u64
 chunk_metadata_size(const bool is_mapped) {
-    const u64 size = align_up(sizeof(u64) * 3, chunk_alignment());
+    const u64 size = align_up(chunk_header_size(), chunk_alignment());
     return is_mapped ? size + mapped_chunk_metadata_size() : size;
 }
 
